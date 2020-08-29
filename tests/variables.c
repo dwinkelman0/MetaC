@@ -71,7 +71,10 @@ size_t test_variables() {
     size_t n_failures = 0;
     const Case_t *c = cases;
     while (c->input) {
-        TryVariable_t var = parse_variable(c->input, strend(c->input));
+        ConstString str;
+        str.begin = c->input;
+        str.end = strend(c->input);
+        TryVariable_t var = parse_variable(&str);
         if (c->succeeds && !var.success) {
             printf(" - FAIL (expecting success, got failure \"%s\"): \"%s\"\n", var.error.desc, c->input);
             ++n_failures;
@@ -88,7 +91,7 @@ size_t test_variables() {
             memset(buffer, 0, sizeof(buffer));
             print_variable(&var.value, buffer);
             if (strcmp(buffer, c->output ? c->output : c->input)) {
-                printf(" - Failed (expecting \"%s\", got \"%s\"): \"%s\"\n", c->output ? c->output : c->input, buffer, c->input);
+                printf(" - FAIL (expecting \"%s\", got \"%s\"): \"%s\"\n", c->output ? c->output : c->input, buffer, c->input);
                 ++n_failures;
             }
             else {

@@ -5,6 +5,11 @@
 
 typedef enum { false, true } bool;
 
+typedef struct {
+    const char *begin;
+    const char *end;
+} ConstString;
+
 #define Optional(type) struct { type value; bool has_value; }
 #define LinkedList(type) struct LinkedList_##type { type value; struct LinkedList_##type *next; }
 

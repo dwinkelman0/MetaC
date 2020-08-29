@@ -5,10 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-static bool try_consume_str(const char **const str, const char *const search) {
+static bool try_consume_str(ConstString *const str, const char *const search) {
+    const size_t str_len = str->end - str->begin;
     const size_t search_len = strlen(search);
-    if (!strncmp(*str, search, search_len)) {
-        *str += search_len;
+    if (str_len >= search_len && !strncmp(str->begin, search, search_len)) {
+        str->begin += search_len;
         return true;
     }
     else {
@@ -16,10 +17,11 @@ static bool try_consume_str(const char **const str, const char *const search) {
     }
 }
 
-static bool try_rev_consume_str(const char **const end, const char *const search) {
+static bool try_rev_consume_str(ConstString *const str, const char *const search) {
+    const size_t str_len = str->end - str->begin;
     const size_t search_len = strlen(search);
-    if (!strncmp(*end - search_len, search, search_len)) {
-        *end -= search_len;
+    if (str_len >= search_len && !strncmp(str->end - search_len, search, search_len)) {
+        str->end -= search_len;
         return true;
     }
     else {
@@ -27,8 +29,8 @@ static bool try_rev_consume_str(const char **const end, const char *const search
     }
 }
 
-static const char *rev_find_char(const char c, const char *const str, const char *const end) {
-    for (const char *it = end - 1; it >= str; --it) {
+static const char *rev_find_char(const char c, const ConstString *const str) {
+    for (const char *it = str->end - 1; it >= str->begin; --it) {
         if (*it == c) {
             return it;
         }
@@ -36,35 +38,39 @@ static const char *rev_find_char(const char c, const char *const str, const char
     return NULL;
 }
 
-static const char *matching_paren(const char *str) {
-    if (*str != '(') {
+static const char *matching_paren(const ConstString *const str) {
+    if (*str->begin != '(') {
         return NULL;
     }
-    const char *it = str + 1;
+    const char *it = str->begin + 1;
     int depth = 1;
     while (depth > 0) {
+        if (it == str->end) {
+            return NULL;
+        }
         if (*it == '(') {
             ++depth;
         }
         else if (*it == ')') {
             --depth;
         }
-        else if (*it == 0) {
-            return NULL;
-        }
         ++it;
     }
     return it;
 }
 
-static const char *rev_matching_paren(const char *begin, const char *end) {
-    if (*(end - 1) != ')') {
+// !!! Code Smell
+static const char *rev_matching_paren(const ConstString *const str) {
+    if (*(str->end - 1) != ')') {
         return NULL;
     }
-    const char *it = end - 1;
+    const char *it = str->end - 1;
     int depth = 1;
-    while (depth > 0 && it > begin) {
+    while (depth > 0) {
         --it;
+        if (it < str->begin) {
+            return NULL;
+        }
         if (*it == ')') {
             ++depth;
         }
@@ -75,10 +81,10 @@ static const char *rev_matching_paren(const char *begin, const char *end) {
     return depth == 0 ? it : NULL;
 }
 
-static bool try_consume_parens(const char **begin, const char **end) {
-    if (matching_paren(*begin) == *end) {
-        ++(*begin);
-        --(*end);
+static bool try_consume_parens(ConstString *const str) {
+    if (matching_paren(str) == str->end) {
+        ++str->begin;
+        ++str->end;
         return true;
     }
     else {
@@ -86,54 +92,54 @@ static bool try_consume_parens(const char **begin, const char **end) {
     }
 }
 
-static uint64_t consume_whitespace(const char **const str) {
-    const char *orig_str = *str;
-    while (**str == ' ' || **str == '\t' || **str == '\n' || **str == '/') {
-        if (**str == '/') {
-            if (*(*str + 1) == '/') {
-                (*str) += 2;
-                while (**str != '\n' && **str != 0) {
-                    ++(*str);
+static uint64_t consume_whitespace(ConstString *const str) {
+    const char *orig_str = str->begin;
+    while (*str->begin == ' ' || *str->begin == '\t' || *str->begin == '\n' || *str->begin == '/') {
+        if (*str->begin == '/') {
+            if (*(str->begin + 1) == '/') {
+                str->begin += 2;
+                while (*str->begin != '\n' && *str->begin != 0) {
+                    ++str->begin;
                 }
-                if (**str == 0) {
+                if (*str->begin == 0) {
                     break;
                 }
             }
-            else if (*(*str + 1) == '*') {
-                (*str) += 2;
-                while ((**str != '*' || *(*str + 1) != '/') && *(*str + 1) != 0) {
-                    ++(*str);
+            else if (*(str->begin + 1) == '*') {
+                str->begin += 2;
+                while ((*str->begin != '*' || *(str->begin + 1) != '/') && *(str->begin + 1) != 0) {
+                    ++str->begin;
                 }
-                if (*(*str + 1) == 0) {
+                if (*(str->begin + 1) == 0) {
                     break;
                 }
             }
         }
-        ++(*str);
+        ++str->begin;
     }
-    return *str - orig_str;
+    return str->begin - orig_str;
 }
 
-static uint64_t rev_consume_whitespace(const char **const end) {
-    const char *orig_end = *end;
-    while (*(*end - 1) == ' ' || *(*end - 1) == '\t' || *(*end - 1) == '\n') {
-        --(*end);
+static uint64_t rev_consume_whitespace(ConstString *const str) {
+    const char *orig_end = str->end;
+    while (*(str->end - 1) == ' ' || *(str->end - 1) == '\t' || *(str->end - 1) == '\n') {
+        --str->end;
     }
-    return orig_end - *end;
+    return orig_end - str->end;
 } 
 
-static char *try_consume_and_copy_identifier(const char **const str) {
-    const char *orig_str = *str;
-    if (('a' <= **str && **str <= 'z') || ('A' <= **str && **str <= 'Z') || **str == '_') {
-        ++(*str);
+static char *try_consume_and_copy_identifier(ConstString *const str) {
+    const char *orig_str = str->begin;
+    if (('a' <= *str->begin && *str->begin <= 'z') || ('A' <= *str->begin && *str->begin <= 'Z') || *str->begin == '_') {
+        ++str->begin;
     }
     else {
         return NULL;
     }
-    while (('0' <= **str && **str <= '9') || ('a' <= **str && **str <= 'z') || ('A' <= **str && **str <= 'Z') || **str == '_') {
-        ++(*str);
+    while (('0' <= *str->begin && *str->begin <= '9') || ('a' <= *str->begin && *str->begin <= 'z') || ('A' <= *str->begin && *str->begin <= 'Z') || *str->begin == '_') {
+        ++str->begin;
     }
-    const size_t len = *str - orig_str;
+    const size_t len = str->begin - orig_str;
     char *output = (char *)malloc(len + 1);
     memcpy(output, orig_str, len);
     output[len] = 0;
@@ -142,42 +148,41 @@ static char *try_consume_and_copy_identifier(const char **const str) {
 
 typedef TryGrammar(DerivedType_t*) TryDerivedType_t;
 
-TryDerivedType_t try_consume_derived_type(const char **const begin, const char **const end) {
+TryDerivedType_t try_consume_derived_type(ConstString *const str) {
     TryDerivedType_t output;
     output.success = true;
     output.value = NULL;
 
-    if (*begin == *end) {
+    if (str->begin == str->end) {
         return output;
     }
 
-    while (consume_whitespace(begin) || rev_consume_whitespace(end) || try_consume_parens(begin, end));
-    const char *working_begin = *begin;
-    const char *working_end = *end;
+    while (consume_whitespace(str) || rev_consume_whitespace(str) || try_consume_parens(str));
+    ConstString working = *str;
 
     // Try parsing a pointer
-    if (*working_begin == '*') {
-        working_begin++;
-        consume_whitespace(&working_begin);
-        const char *restore_begin = working_begin;
+    if (*working.begin == '*') {
+        working.begin++;
+        consume_whitespace(&working);
+        ConstString restore = working;
         ConstVolatileQualification_t qualification = NONE;
-        if (try_consume_str(&working_begin, "const")) {
-            if (consume_whitespace(&working_begin) || *working_begin == '*' || *working_begin == '(') {
+        if (try_consume_str(&working, "const")) {
+            if (consume_whitespace(&working) || *working.begin == '*' || *working.begin == '(') {
                 qualification = CONST;
             }
             else {
-                working_begin = restore_begin;
+                working.begin = restore.begin;
             }
         }
-        else if (try_consume_str(&working_begin, "volatile")) {
-            if (consume_whitespace(&working_begin) || *working_begin == '*' || *working_begin == '(') {
+        else if (try_consume_str(&working, "volatile")) {
+            if (consume_whitespace(&working) || *working.begin == '*' || *working.begin == '(') {
                 qualification = VOLATILE;
             }
             else {
-                working_begin = restore_begin;
+                working.begin = restore.begin;
             }
         }
-        *begin = working_begin;
+        str->begin = working.begin;
         output.value = malloc(sizeof(DerivedType_t));
         output.value->variant = POINTER_TO_TYPE;
         output.value->pointer.child_type = NULL;
@@ -186,33 +191,31 @@ TryDerivedType_t try_consume_derived_type(const char **const begin, const char *
     }
 
     // Try parsing an array
-    if (*(working_end - 1) == ']') {
-        const char *closed_bracket_it = working_end - 1;
-        const char *open_bracket_it = rev_find_char('[', working_begin, closed_bracket_it);
-        if (!open_bracket_it) {
+    if (*(working.end - 1) == ']') {
+        working.end -= 1;
+        working.begin = rev_find_char('[', &working);
+        if (!working.begin) {
             output.success = false;
-            output.error.it = closed_bracket_it;
+            output.error.it = working.end;
             output.error.desc = "No '[' to match ']'";
             return output;
         }
-        *end = open_bracket_it;
-        ++open_bracket_it;
-        consume_whitespace(&open_bracket_it);
+        str->end = working.begin;
+        working.begin++;
+        consume_whitespace(&working);
 
         bool has_value = false;
         uint64_t size = 0;
-        assert(open_bracket_it <= closed_bracket_it);
-        if (open_bracket_it == closed_bracket_it) {
+        if (working.begin == working.end) {
             has_value = false;
         }
         else {
             has_value = true;
-            const char *size_end_it = open_bracket_it;
-            size = consume_uint64(&size_end_it);
-            consume_whitespace(&size_end_it);
-            if (size_end_it != closed_bracket_it) {
+            size = consume_uint64(&working.begin);
+            consume_whitespace(&working);
+            if (working.begin != working.end) {
                 output.success = false;
-                output.error.it = size_end_it;
+                output.error.it = working.begin;
                 output.error.desc = "Brackets must contain either nothing or a positive integer";
                 return output;
             }
@@ -228,19 +231,16 @@ TryDerivedType_t try_consume_derived_type(const char **const begin, const char *
     }
 
     // Try parsing a function
-    if (*(working_end - 1) == ')') {
-        const char *params_begin = rev_matching_paren(working_begin, working_end);
-        const char *cutoff = params_begin;
-        if (!params_begin) {
+    if (*(working.end - 1) == ')') {
+        working.end = rev_matching_paren(&working);
+        const char *cutoff = working.begin;
+        if (!working.begin) {
             output.success = false;
-            output.error.it = working_end - 1;
+            output.error.it = working.end - 1;
             output.error.desc = "No '(' to match ')'";
             return output;
         }
-
-        const char *params_end = working_end;
-        assert(params_begin != working_begin);
-        try_consume_parens(&params_begin, &params_end);
+        try_consume_parens(&working);
 
         output.value = malloc(sizeof(DerivedType_t));
         output.value->variant = FUNCTION_TYPE;
@@ -249,28 +249,28 @@ TryDerivedType_t try_consume_derived_type(const char **const begin, const char *
 
         VariableLinkedList_t *params_head = output.value->function.params;
 
-        const char *param_begin = params_begin;
-        const char *param_end = param_begin;
-        while (param_end < params_end) {
+        ConstString param = working;
+        param.end = working.end;
+        while (param.end < working.end) {
             // Find the next comma
-            while (*param_end != ',' && param_end < params_end) {
-                if (*param_end == '(') {
-                    const char *closing_paren = matching_paren(param_end);
+            while (*param.end != ',' && param.end < working.end) {
+                if (*param.end == '(') {
+                    const char *closing_paren = matching_paren(&param);
                     if (!closing_paren) {
                         free(output.value);
                         output.value = NULL;
                         output.success = false;
-                        output.error.it = param_end;
+                        output.error.it = param.end;
                         output.error.desc = "No ')' to match '('";
                         return output;
                     }
-                    param_end = closing_paren;
+                    param.end = closing_paren;
                 }
                 else {
-                    ++param_end;
+                    ++param.end;
                 }
             }
-            TryVariable_t var = parse_variable(param_begin, param_end);
+            TryVariable_t var = parse_variable(&param);
             if (!var.success) {
                 free(output.value);
                 output.value = NULL;
@@ -292,11 +292,11 @@ TryDerivedType_t try_consume_derived_type(const char **const begin, const char *
                 params_head = next_param;
             }
 
-            param_begin = param_end + 1;
-            param_end = param_begin;
+            param.begin = param.end + 1;
+            param.end = param.begin;
         }
 
-        *end = cutoff;
+        str->end = cutoff;
         
         return output;
     }
@@ -304,45 +304,44 @@ TryDerivedType_t try_consume_derived_type(const char **const begin, const char *
     return output;
 }
 
-TryVariable_t parse_variable(const char *const begin, const char *const end) {
+TryVariable_t parse_variable(const ConstString *const input) {
     TryVariable_t output;
     output.success = true;
     output.value.name = NULL;
 
     // Get rid of all beginning and ending whitespace
-    const char *working_begin = begin;
-    consume_whitespace(&working_begin);
-    const char *restore_begin = working_begin;
-    const char *working_end = end;
-    rev_consume_whitespace(&working_end);
+    ConstString working = *input;
+    consume_whitespace(&working);
+    rev_consume_whitespace(&working);
+    ConstString restore = working;
 
     // The root must have a terminal type
     DerivedType_t *terminal = malloc(sizeof(DerivedType_t));
     terminal->variant = TERMINAL_TYPE;
 
     // Check for const or volatile
-    if (try_consume_str(&working_begin, "const")) {
-        if (consume_whitespace(&working_begin)) {
+    if (try_consume_str(&working, "const")) {
+        if (consume_whitespace(&working)) {
             terminal->terminal.qualification = CONST;
         }
         else {
-            working_begin = restore_begin;
+            working = restore;
         }
     }
-    else if (try_consume_str(&working_begin, "volatile")) {
-        if (consume_whitespace(&working_begin)) {
+    else if (try_consume_str(&working, "volatile")) {
+        if (consume_whitespace(&working)) {
             terminal->terminal.qualification = VOLATILE;
         }
         else {
-            working_begin = restore_begin;
+            working = restore;
         }
     }
-    terminal->terminal.name = try_consume_and_copy_identifier(&working_begin);
+    terminal->terminal.name = try_consume_and_copy_identifier(&working);
     output.value.type = terminal;
 
     DerivedType_t *current_derived = terminal;
     while (current_derived) {
-        TryDerivedType_t next_derived = try_consume_derived_type(&working_begin, &working_end);
+        TryDerivedType_t next_derived = try_consume_derived_type(&working);
         if (next_derived.success) {
             if (next_derived.value) {
                 switch (next_derived.value->variant) {
@@ -362,10 +361,10 @@ TryVariable_t parse_variable(const char *const begin, const char *const end) {
                 }
             }
             else {
-                output.value.name = try_consume_and_copy_identifier(&working_begin);
-                if (working_begin != working_end) {
+                output.value.name = try_consume_and_copy_identifier(&working);
+                if (working.begin != working.end) {
                     output.success = false;
-                    output.error.it = working_begin;
+                    output.error.it = working.begin;
                     output.error.desc = "Too many characters";
                     return output;
                 }

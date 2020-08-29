@@ -68,7 +68,7 @@ typedef struct Variable {
 } Variable_t;
 
 typedef TryGrammar(Variable_t) TryVariable_t;
-TryVariable_t parse_variable(const char *const begin, const char *const end);
+TryVariable_t parse_variable(const ConstString *const input);
 void print_variable(const Variable_t *const var, char *buffer);
 
 #endif
