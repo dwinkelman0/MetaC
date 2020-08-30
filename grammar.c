@@ -38,8 +38,8 @@ static const char *rev_find_char(const char c, const ConstString *const str) {
     return NULL;
 }
 
-static const char *matching_paren(const ConstString *const str) {
-    if (*str->begin != '(') {
+static const char *find_closing_char(const ConstString *const str, const char opening, const char closing) {
+    if (*str->begin != opening) {
         return NULL;
     }
     const char *it = str->begin + 1;
@@ -48,10 +48,10 @@ static const char *matching_paren(const ConstString *const str) {
         if (it == str->end) {
             return NULL;
         }
-        if (*it == '(') {
+        if (*it == opening) {
             ++depth;
         }
-        else if (*it == ')') {
+        else if (*it == closing) {
             --depth;
         }
         ++it;
@@ -60,21 +60,18 @@ static const char *matching_paren(const ConstString *const str) {
 }
 
 // !!! Code Smell
-static const char *rev_matching_paren(const ConstString *const str) {
-    if (*(str->end - 1) != ')') {
+static const char *rev_find_closing_char(const ConstString *const str, const char opening, const char closing) {
+    if (*(str->end - 1) != closing) {
         return NULL;
     }
     const char *it = str->end - 1;
     int depth = 1;
-    while (depth > 0) {
+    while (depth > 0 && it > str->begin) {
         --it;
-        if (it < str->begin) {
-            return NULL;
-        }
-        if (*it == ')') {
+        if (*it == closing) {
             ++depth;
         }
-        else if (*it == '(') {
+        else if (*it == opening) {
             --depth;
         }
     }
@@ -82,9 +79,9 @@ static const char *rev_matching_paren(const ConstString *const str) {
 }
 
 static bool try_consume_parens(ConstString *const str) {
-    if (matching_paren(str) == str->end) {
+    if (find_closing_char(str, '(', ')') == str->end) {
         ++str->begin;
-        ++str->end;
+        --str->end;
         return true;
     }
     else {
@@ -126,7 +123,42 @@ static uint64_t rev_consume_whitespace(ConstString *const str) {
         --str->end;
     }
     return orig_end - str->end;
-} 
+}
+
+typedef const char *CharPtr;
+typedef TryGrammar(CharPtr) TryChar_t;
+
+static TryChar_t find_char_nested(const ConstString *const str, const char c) {
+    TryChar_t output;
+    output.success = false;
+    output.error.it = NULL;
+    output.error.desc = NULL;
+
+    ConstString working = *str;
+    while (*working.begin != c && working.begin < str->end) {
+        static const char *pairs[] = {"()", "[]", "{}", NULL};
+        const char **pair = pairs;
+        while (*pair) {
+            if (*working.begin == (*pair)[0]) {
+                const char *closing = find_closing_char(&working, (*pair)[0], (*pair)[1]);
+                if (!closing) {
+                    output.error.it = working.begin;
+                    output.error.desc = "No closing character";
+                    return output;
+                }
+                working.begin = closing;
+                break;
+            }
+            ++pair;
+        }
+        if (!*pair) {
+            ++working.begin;
+        }
+    }
+    output.success = true;
+    output.value = working.begin;
+    return output;
+}
 
 static char *try_consume_and_copy_identifier(ConstString *const str) {
     const char *orig_str = str->begin;
@@ -144,6 +176,43 @@ static char *try_consume_and_copy_identifier(ConstString *const str) {
     memcpy(output, orig_str, len);
     output[len] = 0;
     return output;
+}
+
+typedef TryGrammar(Type_t*) TryType_t;
+
+TryType_t try_consume_type(ConstString *const str) {
+    TryType_t output;
+    output.success = true;
+    output.value = NULL;
+    Type_t type;
+
+    consume_whitespace(str);
+    ConstString working = *str;
+    if (try_consume_str(&working, "struct")) {
+        type.variant = STRUCT_TYPE;
+        if (consume_whitespace(&working)) {
+            type._struct.name = try_consume_and_copy_identifier(&working);
+            if (type._struct.name) {
+                consume_whitespace(&working);
+            }
+            
+        }
+    }
+    else if (try_consume_str(&working, "union")) {
+        type.variant = UNION_TYPE;
+        if (consume_whitespace(&working)) {
+            type._union.name = try_consume_and_copy_identifier(&working);
+            if (type._union.name) {
+                consume_whitespace(&working);
+            }
+            
+        }
+    }
+    else if (try_consume_str(&working, "enum")) {
+        if (consume_whitespace(&working)) {
+
+        }
+    }
 }
 
 typedef TryGrammar(DerivedType_t*) TryDerivedType_t;
@@ -232,7 +301,7 @@ TryDerivedType_t try_consume_derived_type(ConstString *const str) {
 
     // Try parsing a function
     if (*(working.end - 1) == ')') {
-        working.end = rev_matching_paren(&working);
+        working.begin = rev_find_closing_char(&working, '(', ')');
         const char *cutoff = working.begin;
         if (!working.begin) {
             output.success = false;
@@ -249,27 +318,20 @@ TryDerivedType_t try_consume_derived_type(ConstString *const str) {
 
         VariableLinkedList_t *params_head = output.value->function.params;
 
-        ConstString param = working;
-        param.end = working.end;
-        while (param.end < working.end) {
+        ConstString param;
+        param = working;
+        while (param.begin < working.end) {
             // Find the next comma
-            while (*param.end != ',' && param.end < working.end) {
-                if (*param.end == '(') {
-                    const char *closing_paren = matching_paren(&param);
-                    if (!closing_paren) {
-                        free(output.value);
-                        output.value = NULL;
-                        output.success = false;
-                        output.error.it = param.end;
-                        output.error.desc = "No ')' to match '('";
-                        return output;
-                    }
-                    param.end = closing_paren;
-                }
-                else {
-                    ++param.end;
-                }
+            TryChar_t comma = find_char_nested(&param, ',');
+            if (!comma.success) {
+                free(output.value);
+                output.value = NULL;
+                output.success = false;
+                output.error.it = comma.error.it;
+                output.error.desc = comma.error.desc;
+                return output;
             }
+            param.end = comma.value;
             TryVariable_t var = parse_variable(&param);
             if (!var.success) {
                 free(output.value);
@@ -293,11 +355,9 @@ TryDerivedType_t try_consume_derived_type(ConstString *const str) {
             }
 
             param.begin = param.end + 1;
-            param.end = param.begin;
+            param.end = working.end;
         }
-
-        str->end = cutoff;
-        
+        str->end = cutoff;        
         return output;
     }
 
@@ -336,7 +396,8 @@ TryVariable_t parse_variable(const ConstString *const input) {
             working = restore;
         }
     }
-    terminal->terminal.name = try_consume_and_copy_identifier(&working);
+    terminal->terminal.type = malloc(sizeof(Type_t));
+    terminal->terminal.type->_named = try_consume_and_copy_identifier(&working);
     output.value.type = terminal;
 
     DerivedType_t *current_derived = terminal;
@@ -404,26 +465,26 @@ void print_variable(const Variable_t *const var, char *buffer) {
             if (strlen(print_in)) {
                 switch (der->terminal.qualification) {
                     case NONE:
-                        sprintf(print_out, "%s %s", der->terminal.name, print_in);
+                        sprintf(print_out, "%s %s", der->terminal.type->_named, print_in);
                         break;
                     case CONST:
-                        sprintf(print_out, "const %s %s", der->terminal.name, print_in);
+                        sprintf(print_out, "const %s %s", der->terminal.type->_named, print_in);
                         break;
                     case VOLATILE:
-                        sprintf(print_out, "volatile %s %s", der->terminal.name, print_in);
+                        sprintf(print_out, "volatile %s %s", der->terminal.type->_named, print_in);
                         break;
                 }
             }
             else {
                 switch (der->terminal.qualification) {
                     case NONE:
-                        sprintf(print_out, "%s", der->terminal.name);
+                        sprintf(print_out, "%s", der->terminal.type->_named);
                         break;
                     case CONST:
-                        sprintf(print_out, "const %s", der->terminal.name);
+                        sprintf(print_out, "const %s", der->terminal.type->_named);
                         break;
                     case VOLATILE:
-                        sprintf(print_out, "volatile %s", der->terminal.name);
+                        sprintf(print_out, "volatile %s", der->terminal.type->_named);
                         break;
                 }
             }
@@ -478,5 +539,5 @@ void print_variable(const Variable_t *const var, char *buffer) {
         }
         prev_der = current_der;
     }
-    memcpy(buffer, print_out, strlen(print_out));
+    memcpy(buffer, print_out, strlen(print_out) + 1);
 }

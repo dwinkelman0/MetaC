@@ -11,17 +11,38 @@ struct Variable;
 typedef struct Variable *VariablePtr;
 typedef LinkedList(VariablePtr) VariableLinkedList_t;
 
+struct EnumField;
+typedef struct EnumField *EnumFieldPtr;
+typedef LinkedList(EnumFieldPtr) EnumFieldLinkedList_t;
+
 typedef enum {
-    VOID, FLOAT, DOUBLE, CHAR, SHORT, INT, LONG, LONG_LONG
+    VOID, FLOAT, DOUBLE, CHAR, SHORT, INT, LONG, LONG_LONG,
+    UNSIGNED_CHAR, UNSIGNED_SHORT, UNSIGNED_INT, UNSIGNED_LONG, UNSIGNED_LONG_LONG
 } PrimitiveType_t;
 
 typedef enum {
-    PRIMITIVE,
-    STRUCT,
-    UNION,
-    ENUM,
-    OTHER_NAME
-} NamedType_t;
+    PRIMITIVE_TYPE, STRUCT_TYPE, UNION_TYPE, ENUM_TYPE, NAMED_TYPE
+} TypeVariant_t;
+
+typedef struct Type {
+    TypeVariant_t variant;
+    union {
+        PrimitiveType_t _primitive;
+        struct {
+            char *name;
+            VariableLinkedList_t *fields;
+        } _struct;
+        struct {
+            char *name;
+            VariableLinkedList_t *fields;
+        } _union;
+        struct {
+            char *name;
+            EnumFieldLinkedList_t *fields;
+        } _enum;
+        char *_named;
+    };
+} Type_t;
 
 typedef enum {
     TERMINAL_TYPE,
@@ -41,11 +62,7 @@ typedef struct DerivedType {
     union {
         struct {
             ConstVolatileQualification_t qualification;
-            NamedType_t variant;
-            union {
-                PrimitiveType_t primitive;
-                char *name;
-            };
+            Type_t *type;
         } terminal;
         struct {
             ConstVolatileQualification_t qualification;
