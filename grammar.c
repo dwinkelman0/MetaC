@@ -178,31 +178,113 @@ static char *try_consume_and_copy_identifier(ConstString *const str) {
     return output;
 }
 
-typedef TryGrammar(Type_t*) TryType_t;
+typedef TryGrammar(VariableLinkedList_t*) TryVariableLinkedList_t;
 
-TryType_t try_consume_type(ConstString *const str) {
-    TryType_t output;
+static TryVariableLinkedList_t try_consume_fields(const ConstString *const str) {
+    TryVariableLinkedList_t output;
     output.success = true;
     output.value = NULL;
-    Type_t type;
+
+    VariableLinkedList_t *var_head = output.value;
+    ConstString working = *str;
+    consume_whitespace(&working);
+    while (working.begin < working.end) {
+        TryChar_t c = find_char_nested(&working, ';');
+        if (!c.success) {
+            output.success = false;
+            output.error.it = c.error.it;
+            output.error.desc = c.error.desc;
+            return output;
+        }
+        ConstString varstr;
+        varstr.begin = working.begin;
+        varstr.end = c.value;
+        TryVariable_t var = parse_variable(&varstr);
+        if (!var.success) {
+            output.success = false;
+            output.error.it = c.error.it;
+            output.error.desc = c.error.desc;
+            return output;
+        }
+        VariableLinkedList_t *var_new = malloc(sizeof(VariableLinkedList_t));
+        var_new->next = NULL;
+        var_new->value = malloc(sizeof(Variable_t));
+        memcpy(var_new->value, &var.value, sizeof(Variable_t));
+        if (var_head) {
+            var_head->next = var_new;
+            var_head = var_new;
+        }
+        else {
+            output.value = var_new;
+            var_head = var_new;
+        }
+        working.begin = c.value + 1;
+        consume_whitespace(&working);
+    }
+    return output;
+}
+
+typedef TryGrammar(Type_t) TryType_t;
+
+static TryType_t try_consume_type(ConstString *const str) {
+    TryType_t output;
+    output.success = true;
 
     consume_whitespace(str);
     ConstString working = *str;
+
+    if (working.begin == working.end) {
+        output.value.variant = NAMED_TYPE;
+        output.value._named = NULL;
+        return output;
+    }
+
     if (try_consume_str(&working, "struct")) {
-        type.variant = STRUCT_TYPE;
+        output.value.variant = STRUCT_TYPE;
+        output.value._struct.name = NULL;
+        output.value._struct.fields = NULL;
+        output.value._struct.is_definition = false;
         if (consume_whitespace(&working)) {
-            type._struct.name = try_consume_and_copy_identifier(&working);
-            if (type._struct.name) {
+            output.value._struct.name = try_consume_and_copy_identifier(&working);
+            if (output.value._struct.name) {
                 consume_whitespace(&working);
             }
-            
+            str->begin = working.begin;
+        }
+        if (*working.begin == '{') {
+            ConstString closure;
+            closure.begin = working.begin + 1;
+            closure.end = find_closing_char(&working, '{', '}');
+            if (!closure.end) {
+                output.success = false;
+                output.error.it = working.begin;
+                output.error.desc = "No '}' to match '{'";
+                return output;
+            }
+            closure.end -= 1;
+            TryVariableLinkedList_t fields = try_consume_fields(&closure);
+            if (!fields.success) {
+                output.success = false;
+                output.error.it = fields.error.it;
+                output.error.desc = fields.error.desc;
+                return output;
+            }
+            output.value._struct.fields = fields.value;
+            output.value._struct.is_definition = true;
+            str->begin = closure.end + 1;
+        }
+        else if (!output.value._struct.name) {
+            output.success = false;
+            output.error.it = str->begin;
+            output.error.desc = "Struct needs a name";
+            return output;
         }
     }
     else if (try_consume_str(&working, "union")) {
-        type.variant = UNION_TYPE;
+        output.value.variant = UNION_TYPE;
         if (consume_whitespace(&working)) {
-            type._union.name = try_consume_and_copy_identifier(&working);
-            if (type._union.name) {
+            output.value._union.name = try_consume_and_copy_identifier(&working);
+            if (output.value._union.name) {
                 consume_whitespace(&working);
             }
             
@@ -213,11 +295,17 @@ TryType_t try_consume_type(ConstString *const str) {
 
         }
     }
+    else {
+        output.value.variant = NAMED_TYPE;
+        output.value._named = try_consume_and_copy_identifier(&working);
+        str->begin = working.begin;
+    }
+    return output;
 }
 
 typedef TryGrammar(DerivedType_t*) TryDerivedType_t;
 
-TryDerivedType_t try_consume_derived_type(ConstString *const str) {
+static TryDerivedType_t try_consume_derived_type(ConstString *const str) {
     TryDerivedType_t output;
     output.success = true;
     output.value = NULL;
@@ -396,8 +484,15 @@ TryVariable_t parse_variable(const ConstString *const input) {
             working = restore;
         }
     }
+    TryType_t type = try_consume_type(&working);
+    if (!type.success) {
+        output.success = false;
+        output.error.it = type.error.it;
+        output.error.desc = type.error.desc;
+        return output;
+    }
     terminal->terminal.type = malloc(sizeof(Type_t));
-    terminal->terminal.type->_named = try_consume_and_copy_identifier(&working);
+    memcpy(terminal->terminal.type, &type.value, sizeof(Type_t));
     output.value.type = terminal;
 
     DerivedType_t *current_derived = terminal;
@@ -443,7 +538,38 @@ TryVariable_t parse_variable(const ConstString *const input) {
     return output;
 }
 
-void print_variable(const Variable_t *const var, char *buffer) {
+static size_t print_type(const Type_t *const type, char *buffer) {
+    char inner[0x1000];
+    char *it = inner;
+    VariableLinkedList_t *field;
+
+    if (type->variant == NAMED_TYPE) {
+        return sprintf(buffer, "%s", type->_named);
+    }
+    else if (type->variant == STRUCT_TYPE) {
+        const char *keyword = "struct";
+        field = type->_struct.fields;
+        while (field) {
+            it += print_variable(field->value, it);
+            it += sprintf(it, "; ");
+            field = field->next;
+        }
+        if (type->_struct.is_definition) {
+            if (type->_struct.name) {
+                return sprintf(buffer, "%s %s { %s}", keyword, type->_struct.name, inner);
+            }
+            else {
+                return sprintf(buffer, "%s { %s}", keyword, inner);
+            }
+        }
+        else {
+            assert(type->_struct.name);
+            return sprintf(buffer, "%s %s", keyword, type->_struct.name);
+        }
+    }
+}
+
+size_t print_variable(const Variable_t *const var, char *buffer) {
     char swap1[0x1000];
     char swap2[0x1000];
     char swap3[0x1000];
@@ -462,29 +588,30 @@ void print_variable(const Variable_t *const var, char *buffer) {
         print_out = (print_out == swap1) ? swap2 : swap1;
         DerivedType_t *current_der = der;
         if (der->variant == TERMINAL_TYPE) {
+            print_type(der->terminal.type, swap3);
             if (strlen(print_in)) {
                 switch (der->terminal.qualification) {
                     case NONE:
-                        sprintf(print_out, "%s %s", der->terminal.type->_named, print_in);
+                        sprintf(print_out, "%s %s", swap3, print_in);
                         break;
                     case CONST:
-                        sprintf(print_out, "const %s %s", der->terminal.type->_named, print_in);
+                        sprintf(print_out, "const %s %s", swap3, print_in);
                         break;
                     case VOLATILE:
-                        sprintf(print_out, "volatile %s %s", der->terminal.type->_named, print_in);
+                        sprintf(print_out, "volatile %s %s", swap3, print_in);
                         break;
                 }
             }
             else {
                 switch (der->terminal.qualification) {
                     case NONE:
-                        sprintf(print_out, "%s", der->terminal.type->_named);
+                        sprintf(print_out, "%s", swap3);
                         break;
                     case CONST:
-                        sprintf(print_out, "const %s", der->terminal.type->_named);
+                        sprintf(print_out, "const %s", swap3);
                         break;
                     case VOLATILE:
-                        sprintf(print_out, "volatile %s", der->terminal.type->_named);
+                        sprintf(print_out, "volatile %s", swap3);
                         break;
                 }
             }
@@ -539,5 +666,7 @@ void print_variable(const Variable_t *const var, char *buffer) {
         }
         prev_der = current_der;
     }
-    memcpy(buffer, print_out, strlen(print_out) + 1);
+    size_t n_written = strlen(print_out);
+    memcpy(buffer, print_out, n_written + 1);
+    return n_written;
 }

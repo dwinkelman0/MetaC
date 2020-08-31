@@ -3,6 +3,7 @@
 
 #include "util.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define TryGrammar(type) struct { bool success; union { type value; struct { const char *it; const char *desc; } error; }; }
@@ -31,14 +32,17 @@ typedef struct Type {
         struct {
             char *name;
             VariableLinkedList_t *fields;
+            bool is_definition;
         } _struct;
         struct {
             char *name;
             VariableLinkedList_t *fields;
+            bool is_definition;
         } _union;
         struct {
             char *name;
             EnumFieldLinkedList_t *fields;
+            bool is_definition;
         } _enum;
         char *_named;
     };
@@ -86,6 +90,6 @@ typedef struct Variable {
 
 typedef TryGrammar(Variable_t) TryVariable_t;
 TryVariable_t parse_variable(const ConstString *const input);
-void print_variable(const Variable_t *const var, char *buffer);
+size_t print_variable(const Variable_t *const var, char *buffer);
 
 #endif
