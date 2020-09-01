@@ -541,6 +541,7 @@ TryVariable_t parse_variable(const ConstString *const input) {
 static size_t print_type(const Type_t *const type, char *buffer) {
     char inner[0x1000];
     char *it = inner;
+    *it = 0;
     VariableLinkedList_t *field;
 
     if (type->variant == NAMED_TYPE) {
@@ -555,11 +556,21 @@ static size_t print_type(const Type_t *const type, char *buffer) {
             field = field->next;
         }
         if (type->_struct.is_definition) {
-            if (type->_struct.name) {
-                return sprintf(buffer, "%s %s { %s}", keyword, type->_struct.name, inner);
+            if (*inner) {
+                if (type->_struct.name) {
+                    return sprintf(buffer, "%s %s { %s}", keyword, type->_struct.name, inner);
+                }
+                else {
+                    return sprintf(buffer, "%s { %s}", keyword, inner);
+                }
             }
             else {
-                return sprintf(buffer, "%s { %s}", keyword, inner);
+                if (type->_struct.name) {
+                    return sprintf(buffer, "%s %s { }", keyword, type->_struct.name);
+                }
+                else {
+                    return sprintf(buffer, "%s { }", keyword);
+                }
             }
         }
         else {
@@ -579,7 +590,7 @@ size_t print_variable(const Variable_t *const var, char *buffer) {
         sprintf(print_out, "%s", var->name);
     }
     else {
-        sprintf(print_out, "");
+        sprintf(print_out, "%s", "");
     }
     DerivedType_t *der = var->type;
     DerivedType_t *prev_der = NULL;

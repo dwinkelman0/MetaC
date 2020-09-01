@@ -88,8 +88,58 @@ typedef struct Variable {
     DerivedType_t *type;
 } Variable_t;
 
+struct Operator;
+typedef enum {
+    OPERATOR_OPERAND,
+    IDENTIFIER_OPERAND,
+    TYPE_OPERAND,
+    STR_LIT_OPERAND,
+    SIGNED_INT_LIT_OPERAND,
+    UNSIGNED_INT_LIT_OPERAND,
+    FLOAT_LIT_OPERAND,
+    DOUBLE_LIT_OPERAND
+} OperandVariant_t;
+typedef enum {
+    OP_COMMA,
+    OP_ASSIGN,
+    OP_COND,
+    OP_LOGICAL_AND,
+    OP_LOGICAL_OR,
+    OP_BITWISE_AND,
+    OP_BITWISE_XOR,
+    OP_BITWISE_OR,
+    OP_EQ, OP_NEQ, OP_GT, OP_LT, OP_GE, OP_LE,
+    OP_SL, OP_SR,
+    OP_ADD, OP_SUB,
+    OP_MUL, OP_DIV, OP_MOD,
+    OP_PREFIX_INC, OP_PREFIX_DEC, OP_POS, OP_NEG, OP_LOGICAL_NOT, OP_BITWISE_NOT, OP_CAST, OP_DEREFERENCE, OP_ADDRESS, OP_SIZEOF,
+    OP_POSTFIX_INC, OP_POSTFIX_DEC, OP_FUNCTION_CALL, OP_ARRAY_SUBSCRIPT, OP_MEMBER_ACCESS, OP_POINTER_MEMBER_ACCESS
+} OperatorVariant_t;
+
+typedef struct Operator {
+    OperatorVariant_t variant;
+    uint32_t n_operands;
+    struct {
+        OperandVariant_t variant;
+        union {
+            struct Operator *op;
+            char *identifier;
+            Type_t *type;
+            int64_t int_lit;
+            uint64_t uint_lit;
+            char *str_lit;
+            float float_lit;
+            double double_lit;
+        };
+    } operands[3];
+} Operator_t;
+
 typedef TryGrammar(Variable_t) TryVariable_t;
 TryVariable_t parse_variable(const ConstString *const input);
 size_t print_variable(const Variable_t *const var, char *buffer);
+
+typedef TryGrammar(Operator_t) TryOperator_t;
+TryOperator_t parse_operator(const ConstString *const input);
+size_t print_operator(const Operator_t *const op, char *buffer);
 
 #endif

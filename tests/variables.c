@@ -74,14 +74,21 @@ Case_t cases[] = {
     {true,  "void *(*(*func)[])()", NULL},
     {false, "struct", NULL},
     {true,  "struct { }", NULL},
+    {true,  "struct{}", "struct { }"},
     {true,  "struct Thing_t", NULL},
     {true,  "struct Thing_t { }", NULL},
     {true,  "struct Thing_t data", NULL},
     {true,  "struct Thing_t { } data", NULL},
     {true,  "struct Thing { struct Thing *next; } data", NULL},
     {true,  "struct { int x; } data", NULL},
+    {true,  "struct{int x;}data", "struct { int x; } data"},
+    {true,  "struct { int x ; }", "struct { int x; }"},
+    {true,  "const struct { const char *begin; const char *end; }", NULL},
     {true,  "struct { struct { }; }", NULL},
+    {true,  "struct { struct { struct { struct { }; }; }; }", NULL},
     {true,  "struct { struct { int x; int y; }; char *str; }", NULL},
+    {true,  "double print(struct Pizza_t *pizza)", NULL},
+    {true,  "double print(struct Pizza { double radius; } *pizza)", NULL},
     {true,  "// comment\nint x", "int x"},
     {true,  "// comment\n\tint x", "int x"},
     {true,  "int // comment\nx", "int x"},
@@ -102,26 +109,26 @@ size_t test_variables() {
         str.end = strend(c->input);
         TryVariable_t var = parse_variable(&str);
         if (c->succeeds && !var.success) {
-            printf(" - FAIL (expecting success, got failure \"%s\"): \"%s\"\n", var.error.desc, c->input);
+            printf(" - \e[1;31mFAIL\e[0m (expecting success, got failure \"%s\"): \"%s\"\n", var.error.desc, c->input);
             ++n_failures;
         }
         else if (!c->succeeds && var.success) {
-            printf(" - FAIL (expecting failure, got success): \"%s\"\n", c->input);
+            printf(" - \e[1;31mFAIL\e[0m (expecting failure, got success): \"%s\"\n", c->input);
             ++n_failures;
         }
         else if (!c->succeeds && !var.success) {
-            printf(" - PASS (fails): \"%s\"\n", c->input);
+            printf(" - \e[1;32mPASS\e[0m (fails): \"%s\"\n", c->input);
         }
         else if (c->succeeds) {
             char buffer[0x1000];
             memset(buffer, 0, sizeof(buffer));
             print_variable(&var.value, buffer);
             if (strcmp(buffer, c->output ? c->output : c->input)) {
-                printf(" - FAIL (expecting \"%s\", got \"%s\"): \"%s\"\n", c->output ? c->output : c->input, buffer, c->input);
+                printf(" - \e[1;31mFAIL\e[0m (expecting \"%s\", got \"%s\"): \"%s\"\n", c->output ? c->output : c->input, buffer, c->input);
                 ++n_failures;
             }
             else {
-                printf(" - PASS (succeeds): \"%s\"\n", c->output ? c->output : c->input);
+                printf(" - \e[1;32mPASS\e[0m (succeeds): \"%s\"\n", c->output ? c->output : c->input);
             }
         }
         ++c;
