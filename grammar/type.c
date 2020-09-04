@@ -94,6 +94,10 @@ static TryPrimitiveLocation_t find_primitive(const ConstString_t str) {
 TryEnumField_t parse_enum(const ConstString_t str, const int expected_value) {
     TryEnumField_t output;
     ConstString_t working = strip_whitespace(str);
+    if (working.begin == working.end) {
+        output.status = TRY_NONE;
+        return output;
+    }
     TryConstString_t name = find_identifier(working);
     if (name.status == TRY_NONE) {
         output.status = TRY_ERROR;
@@ -102,10 +106,10 @@ TryEnumField_t parse_enum(const ConstString_t str, const int expected_value) {
         return output;
     }
     output.value.name = new_alloc_const_string_from_const_str(name.value);
-    working = strip_whitespace(working);
+    working = strip_whitespace(strip(working, name.value).value);
     TryConstString_t equals = find_string(working, const_string_from_cstr("="));
     if (equals.status == TRY_SUCCESS) {
-        working = strip_whitespace(working);
+        working = strip_whitespace(strip(working, equals.value).value);
         TryIntegerLiteral_t integer = find_integer(working);
         if (integer.status == TRY_NONE) {
             output.status = TRY_ERROR;
@@ -240,6 +244,38 @@ TryType_t parse_type(const ConstString_t str) {
                 }
             }
         }
+        else {
+            EnumFieldLinkedListNode_t **head_field = &output.value.compound.e_fields;
+            int64_t expected_value = 0;
+            while (braces.begin < braces.end) {
+                TryConstString_t comma = find_string_nesting_sensitive(braces, const_string_from_cstr(","));
+                ConstString_t field;
+                if (comma.status == TRY_SUCCESS) {
+                    field.begin = braces.begin;
+                    field.end = comma.value.begin;
+                    braces.begin = comma.value.end;
+                }
+                else {
+                    field = braces;
+                    braces.begin = braces.end;
+                }
+                TryEnumField_t pair = parse_enum(field, expected_value);
+                if (pair.status == TRY_ERROR) {
+                    GrammarPropagateError(pair, output);
+                }
+                else if (pair.status == TRY_NONE) {
+                    output.status = TRY_ERROR;
+                    output.error.location = field;
+                    output.error.desc = "Expected a field declaration";
+                    return output;
+                }
+                *head_field = malloc(sizeof(EnumFieldLinkedListNode_t));
+                (*head_field)->next = NULL;
+                (*head_field)->value = pair.value;
+                head_field = &(*head_field)->next;
+                expected_value = pair.value.value + 1;
+            }
+        }
     }
     else {
         output.value.compound.is_definition = false;
@@ -281,10 +317,13 @@ size_t print_type(char *buffer, const Type_t *const type) {
             else {
                 EnumFieldLinkedListNode_t *field = type->compound.e_fields;
                 while (field) {
-                    num_field_chars += sprintf(field_buffer + num_field_chars, "%s = %ld",
-                        field->value.name, field->value.value);
+                    num_field_chars += sprintf(field_buffer + num_field_chars, "%.*s = %ld",
+                        field->value.name.end - field->value.name.begin, field->value.name.begin, field->value.value);
                     if (field->next) {
                         num_field_chars += sprintf(field_buffer + num_field_chars, ", ");
+                    }
+                    else {
+                        num_field_chars += sprintf(field_buffer + num_field_chars, " ");
                     }
                     field = field->next;
                 }

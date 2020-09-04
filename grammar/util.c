@@ -162,6 +162,7 @@ TryConstString_t find_identifier(const ConstString_t str) {
 
 TryIntegerLiteral_t find_integer(const ConstString_t str) {
     TryIntegerLiteral_t output;
+    output.value.integer = 0;
     const char *it = str.begin;
     while (it < str.end && '0' <= *it && *it <= '9') {
         output.value.integer *= 10;

@@ -38,6 +38,11 @@ const static Case_t cases[] = {
     {true,  "struct { struct { }; }", NULL},
     {true,  "struct { struct { struct { struct { }; }; }; }", NULL},
     {true,  "struct { struct { int x; int y; }; char *str; }", NULL},
+    {true,  "enum { RED, YELLOW, GREEN }", "enum { RED = 0, YELLOW = 1, GREEN = 2 }"},
+    {true,  "enum { RED = 1, YELLOW = 5, GREEN = 1892234 }", NULL},
+    {true,  "enum { RED = 5, YELLOW, GREEN }", "enum { RED = 5, YELLOW = 6, GREEN = 7 }"},
+    {false, "enum { RED = }", NULL},
+    {false, "enum { RED GREEN }", NULL},
     {true,  "one", NULL},
     {false, NULL, NULL}
 };
