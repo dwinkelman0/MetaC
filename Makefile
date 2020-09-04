@@ -6,5 +6,8 @@ OBJ = hellomake.o hellofunc.o
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-test: tests/variables.o decl.o expr.o main.o util.o
+test: main.o test_util.o grammar/util.c grammar/type.o grammar/variable.o grammar/tests/fixture.o grammar/tests/type.o grammar/tests/variable.o
 	$(CC) -o $@ $^ $(CFLAGS)
+
+clean:
+	find . -type f -name '*.o' -delete
