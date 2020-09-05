@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 const static Case_t cases[] = {
+    {true,  "x, \"hello\"", NULL},
+    {false, "int x, 5", NULL},
     {true,  "x = 1", NULL},
     {true,  "int x = 5", NULL},
     {true,  "const char *str = \"hello\"", NULL},
@@ -14,8 +16,26 @@ const static Case_t cases[] = {
     {true,  "my_char = '\\''", NULL},
     {true,  "int other = this", NULL},
     {true,  "other = this", NULL},
-    //{false, "other = int x", NULL},
-    //{false, "5 = 6", NULL},
+    {false, "other = int x", NULL},
+    {false, "5 = 6", NULL},
+    {true,  "bool x = y || z", NULL},
+    {true,  "bool x = y && z || a && b", NULL},
+    {true,  "uint64_t x = y | z", NULL},
+    {true,  "uint64_t x = y ^ z", NULL},
+    {true,  "uint64_t x = y & z", NULL},
+    {true,  "bool x = y == z", NULL},
+    {true,  "bool x = y != z", NULL},
+    {true,  "bool x = y > z", NULL},
+    {true,  "bool x = y < z", NULL},
+    {true,  "bool x = y >= z", NULL},
+    {true,  "bool x = y <= z", NULL},
+    {true,  "uint64_t x = y << z", NULL},
+    {true,  "uint64_t x = y >> z", NULL},
+    {true,  "float x = y + z", NULL},
+    {true,  "float x = y - z", NULL},
+    {true,  "float x = y * z", NULL},
+    {true,  "float x = y / z", NULL},
+    {true,  "int x = y % z", NULL},
     {false, NULL, NULL}
 };
 

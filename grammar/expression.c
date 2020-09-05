@@ -16,6 +16,14 @@ TryExpression_t parse_left_expression(const ConstString_t str) {
         output.status = TRY_NONE;
         return output;
     }
+    TryOperator_t op = parse_operator(working);
+    if (op.status == TRY_SUCCESS) {
+        output.status = TRY_SUCCESS;
+        output.value.variant = EXPRESSION_OPERATOR;
+        output.value.operator = malloc(sizeof(Operator_t));
+        *output.value.operator = op.value;
+        return output;
+    }
     TryVariable_t var = parse_variable(str);
     if (var.status == TRY_SUCCESS) {
         output.status = TRY_SUCCESS;
@@ -43,6 +51,14 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
     ConstString_t working = strip_whitespace(str);
     if (working.begin == working.end) {
         output.status = TRY_NONE;
+        return output;
+    }
+    TryOperator_t op = parse_operator(working);
+    if (op.status == TRY_SUCCESS) {
+        output.status = TRY_SUCCESS;
+        output.value.variant = EXPRESSION_OPERATOR;
+        output.value.operator = malloc(sizeof(Operator_t));
+        *output.value.operator = op.value;
         return output;
     }
     TryIntegerLiteral_t integer = find_integer(working);
@@ -110,13 +126,15 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
         output.value.identifier = new_alloc_const_string_from_const_str(identifier.value);
         return output;
     }
+    output.status = TRY_NONE;
+    return output;
 }
 
 size_t print_expression(char *buffer, const Expression_t *const expr) {
     buffer[0] = 0;
     switch (expr->variant) {
         case EXPRESSION_OPERATOR:
-            return 0;
+            return print_operator(buffer, expr->operator);
         case EXPRESSION_IDENTIFIER:
             return sprintf(buffer, "%.*s",
                 (int)(expr->identifier.end - expr->identifier.begin), expr->identifier.begin);

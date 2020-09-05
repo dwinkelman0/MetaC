@@ -318,7 +318,7 @@ size_t print_type(char *buffer, const Type_t *const type) {
                 EnumFieldLinkedListNode_t *field = type->compound.e_fields;
                 while (field) {
                     num_field_chars += sprintf(field_buffer + num_field_chars, "%.*s = %ld",
-                        field->value.name.end - field->value.name.begin, field->value.name.begin, field->value.value);
+                        (int)(field->value.name.end - field->value.name.begin), field->value.name.begin, field->value.value);
                     if (field->next) {
                         num_field_chars += sprintf(field_buffer + num_field_chars, ", ");
                     }
