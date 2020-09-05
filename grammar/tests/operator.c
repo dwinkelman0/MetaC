@@ -36,6 +36,19 @@ const static Case_t cases[] = {
     {true,  "float x = y * z", NULL},
     {true,  "float x = y / z", NULL},
     {true,  "int x = y % z", NULL},
+    {true,  "+time", NULL},
+    {true,  "-time", NULL},
+    {true,  "----time", NULL},
+    {true,  "int x = y + -z", NULL},
+    {true,  "int x = y - -z", NULL},
+    {true,  "int x = y - +z", NULL},
+    {true,  "int x = y + +z", NULL},
+    {true,  "bool z = !t", NULL},
+    {true,  "bool a = !!t && x", NULL},
+    {true,  "uint64_t x = ~4", NULL},
+    {true,  "char **str = &whitespace", NULL},
+    {true,  "char str = *whitespace", NULL},
+    {true,  "int x = a * *ptr", NULL},
     {false, NULL, NULL}
 };
 

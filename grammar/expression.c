@@ -16,20 +16,20 @@ TryExpression_t parse_left_expression(const ConstString_t str) {
         output.status = TRY_NONE;
         return output;
     }
-    TryOperator_t op = parse_operator(working);
-    if (op.status == TRY_SUCCESS) {
-        output.status = TRY_SUCCESS;
-        output.value.variant = EXPRESSION_OPERATOR;
-        output.value.operator = malloc(sizeof(Operator_t));
-        *output.value.operator = op.value;
-        return output;
-    }
     TryVariable_t var = parse_variable(str);
     if (var.status == TRY_SUCCESS) {
         output.status = TRY_SUCCESS;
         output.value.variant = EXPRESSION_DECLARATION;
         output.value.decl = malloc(sizeof(Variable_t));
         *output.value.decl = var.value;
+        return output;
+    }
+    TryOperator_t op = parse_operator(working);
+    if (op.status == TRY_SUCCESS) {
+        output.status = TRY_SUCCESS;
+        output.value.variant = EXPRESSION_OPERATOR;
+        output.value.operator = malloc(sizeof(Operator_t));
+        *output.value.operator = op.value;
         return output;
     }
     TryConstString_t identifier = find_identifier(working);
