@@ -171,8 +171,8 @@ typedef struct Expression {
     union {
         struct Operator *operator;
         AConstString_t identifier;
-        Type_t *type;
-        Variable_t *decl;
+        struct DerivedType *type;
+        struct Variable *decl;
         AConstString_t str_lit;
         AConstString_t char_lit;
         uint64_t uint_lit;

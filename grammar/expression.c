@@ -132,6 +132,7 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
 
 size_t print_expression(char *buffer, const Expression_t *const expr) {
     buffer[0] = 0;
+    Variable_t var;
     switch (expr->variant) {
         case EXPRESSION_OPERATOR:
             return print_operator(buffer, expr->operator);
@@ -139,7 +140,9 @@ size_t print_expression(char *buffer, const Expression_t *const expr) {
             return sprintf(buffer, "%.*s",
                 (int)(expr->identifier.end - expr->identifier.begin), expr->identifier.begin);
         case EXPRESSION_TYPE:
-            return print_type(buffer, expr->type);
+            var.type = expr->type;
+            var.has_name = false;
+            return print_variable(buffer, &var);
         case EXPRESSION_DECLARATION:
             return print_variable(buffer, expr->decl);
         case EXPRESSION_STR_LIT:

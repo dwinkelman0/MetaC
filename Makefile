@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I.
+CFLAGS=-I. -g
 DEPS = hellomake.h
 OBJ = hellomake.o hellofunc.o 
 

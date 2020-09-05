@@ -88,6 +88,36 @@ static TryOperator_t parse_binary_operator(const ConstString_t str, const void *
     }
 }
 
+static TryOperator_t parse_cast_operator(const ConstString_t str, const void *args) {
+    TryOperator_t output;
+    TryConstString_t parens = find_closing(str, '(', ')');
+    if (parens.status == TRY_SUCCESS) {
+        ConstString_t type_str;
+        type_str.begin = parens.value.begin + 1;
+        type_str.end = parens.value.end - 1;
+        TryVariable_t var = parse_variable(type_str);
+        if (var.status == TRY_SUCCESS && !var.value.has_name) {
+            output.value.lop = malloc(sizeof(Expression_t));
+            output.value.lop->variant = EXPRESSION_TYPE;
+            output.value.lop->type = malloc(sizeof(Type_t));
+            memcpy(output.value.lop->type, var.value.type, sizeof(Variable_t));
+            ConstString_t right_str;
+            right_str.begin = parens.value.end;
+            right_str.end = str.end;
+            TryExpression_t right_expr = parse_right_expression(right_str);
+            if (right_expr.status == TRY_SUCCESS) {
+                output.value.rop = malloc(sizeof(Expression_t));
+                *output.value.rop = right_expr.value;
+                output.status = TRY_SUCCESS;
+                output.value.n_operands = 2;
+                return output;
+            }
+        }
+    }
+    output.status = TRY_NONE;
+    return output;
+}
+
 static size_t print_unary_prefix_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
     const OperatorSpec_t *spec = args;
@@ -101,6 +131,15 @@ static size_t print_binary_operator(char *buffer, const Operator_t *const op, co
     const OperatorSpec_t *spec = args;
     num_chars += print_expression(buffer + num_chars, op->lop);
     num_chars += sprintf(buffer + num_chars, "%s", (const char *)spec->print_args);
+    num_chars += print_expression(buffer + num_chars, op->rop);
+    return num_chars;
+}
+
+static size_t print_cast_operator(char *buffer, const Operator_t *const op, const void *args) {
+    size_t num_chars = 0;
+    num_chars += sprintf(buffer, "(");
+    num_chars += print_expression(buffer + num_chars, op->lop);
+    num_chars += sprintf(buffer + num_chars, ")");
     num_chars += print_expression(buffer + num_chars, op->rop);
     return num_chars;
 }
@@ -141,7 +180,7 @@ static OperatorSpec_t operators[] = {
     {OP_NEG,         1,  2,   "-",     "-", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
     {OP_LOGICAL_NOT, 1,  2,   "!",     "!", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
     {OP_BITWISE_NOT, 1,  2,   "~",     "~", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
-    {OP_CAST,        1,  2,  NULL,    NULL,  TYPE_EXPR, RIGHT_EXPR,    NO_EXPR, NULL, NULL},
+    {OP_CAST,        1,  2,  NULL,    NULL,  TYPE_EXPR, RIGHT_EXPR,    NO_EXPR, parse_cast_operator, print_cast_operator},
     {OP_DEREFERENCE, 1,  1,   "*",     "*", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
     {OP_ADDRESS,     1,  1,   "&",     "&", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator}
 };
