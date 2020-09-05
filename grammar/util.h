@@ -56,6 +56,8 @@ struct EnumField;
 struct Type;
 struct DerivedType;
 struct Variable;
+struct Expression;
+struct Operator;
 struct EnumFieldLinkedListNode;
 struct VariableLinkedListNode;
 
@@ -153,6 +155,67 @@ typedef struct Variable {
 } Variable_t;
 
 /**
+ * EXPRESSIONS
+ */
+typedef enum {
+    EXPRESSION_OPERATOR,
+    EXPRESSION_IDENTIFIER,
+    EXPRESSION_TYPE,
+    EXPRESSION_DECLARATION,
+    EXPRESSION_STR_LIT,
+    EXPRESSION_CHAR_LIT,
+    EXPRESSION_UINT_LIT
+} ExpressionVariant_t;
+typedef struct Expression {
+    ExpressionVariant_t variant;
+    union {
+        struct Operator *operator;
+        AConstString_t identifier;
+        Type_t *type;
+        Variable_t *decl;
+        AConstString_t str_lit;
+        AConstString_t char_lit;
+        uint64_t uint_lit;
+    };
+} Expression_t;
+
+/**
+ * OPERATORS
+ */
+typedef enum {
+    OP_COMMA,
+    OP_ASSIGN,
+    OP_COND,
+    OP_LOGICAL_AND,
+    OP_LOGICAL_OR,
+    OP_BITWISE_AND,
+    OP_BITWISE_XOR,
+    OP_BITWISE_OR,
+    OP_EQ, OP_NEQ, OP_GT, OP_LT, OP_GE, OP_LE,
+    OP_SL, OP_SR,
+    OP_ADD, OP_SUB,
+    OP_MUL, OP_DIV, OP_MOD,
+    OP_PREFIX_INC, OP_PREFIX_DEC, OP_POS, OP_NEG, OP_LOGICAL_NOT, OP_BITWISE_NOT, OP_CAST, OP_DEREFERENCE, OP_ADDRESS, OP_SIZEOF,
+    OP_POSTFIX_INC, OP_POSTFIX_DEC, OP_FUNCTION_CALL, OP_ARRAY_SUBSCRIPT, OP_MEMBER_ACCESS, OP_POINTER_MEMBER_ACCESS
+} OperatorVariant_t;
+typedef struct Operator {
+    OperatorVariant_t variant;
+    uint8_t n_operands;
+    union {
+        struct Expression *uop;
+        struct {
+            struct Expression *lop;
+            struct Expression *rop;
+        };
+        struct {
+            struct Expression *pop;
+            struct Expression *top;
+            struct Expression *fop;
+        };
+    };
+} Operator_t;
+
+/**
  * AUXILIARY DATA STRUCTURES
  */
 typedef struct {
@@ -165,6 +228,8 @@ typedef GrammarTryType(ConstString_t) TryConstString_t;
 typedef GrammarTryType(Type_t) TryType_t;
 typedef GrammarTryType(Variable_t) TryVariable_t;
 typedef GrammarTryType(EnumField_t) TryEnumField_t;
+typedef GrammarTryType(Expression_t) TryExpression_t;
+typedef GrammarTryType(Operator_t) TryOperator_t;
 typedef GrammarTryType(char *) TryCharPtr_t;
 
 typedef struct EnumFieldLinkedListNode {

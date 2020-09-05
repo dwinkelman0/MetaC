@@ -4,7 +4,6 @@
 #include <string.h>
 
 int main() {
-    test_types();
-    test_derived_types();
+    test_operator();
     return 0;
 }

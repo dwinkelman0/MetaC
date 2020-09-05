@@ -173,6 +173,7 @@ TryIntegerLiteral_t find_integer(const ConstString_t str) {
         output.status = TRY_NONE;
         return output;
     }
+    output.status = TRY_SUCCESS;
     output.value.str.begin = str.begin;
     output.value.str.end = it;
     return output;

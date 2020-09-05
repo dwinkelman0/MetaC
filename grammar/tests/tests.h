@@ -15,5 +15,6 @@ int test_fixture(const Case_t *const cases, TryCharPtr_t (*const func)(const Con
 
 int test_types();
 int test_derived_types();
+int test_operator();
 
 #endif
