@@ -57,12 +57,15 @@ const static Case_t cases[] = {
     {true,  "char **str = &whitespace", NULL},
     {true,  "char str = *whitespace", NULL},
     {true,  "int x = a * *ptr", NULL},
+    {true,  "int x = *(ptr + 2)", NULL},
     {true,  "size_t sz = sizeof(char)", NULL},
     {true,  "size_t sz = sizeof(char) * 128", NULL},
     {true,  "size_t sz = sizeof(\"Hello\")", NULL},
     {false, "size_t sz = sizeof(int x)", NULL},
+    {true,  "size_t sz = sizeof(5 + 6)", NULL},
     {true,  "result = func()", NULL},
     {true,  "result = func(1, 2, 3)", NULL},
+    {true,  "result = (*args->func)(1, 2, 3)", NULL},
     {true,  "item = things[3]", NULL},
     {true,  "item = things[i]", NULL},
     {true,  "item = things[i][j][k]", NULL},
@@ -72,6 +75,7 @@ const static Case_t cases[] = {
     {true,  "x->number = 5 + 6", NULL},
     {true,  "(vec3 *const )pt.x = 6", NULL},
     {true,  "x.value.pointer->object.member->ref = \"Hello\"", NULL},
+    {true,  "int x = (x + y) * z", NULL},
     {false, NULL, NULL}
 };
 

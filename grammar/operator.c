@@ -1,5 +1,6 @@
 #include "grammar.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -218,42 +219,47 @@ static size_t print_unary_prefix_operator(char *buffer, const Operator_t *const 
     size_t num_chars = 0;
     const OperatorSpec_t *spec = args;
     num_chars += sprintf(buffer, "%s", (const char *)spec->print_args);
-    num_chars += print_expression(buffer + num_chars, op->uop);
+    num_chars += print_expression(buffer + num_chars, op->uop, op);
     return num_chars;
 }
 
 static size_t print_binary_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
     const OperatorSpec_t *spec = args;
-    num_chars += print_expression(buffer + num_chars, op->lop);
+    num_chars += print_expression(buffer + num_chars, op->lop, op);
     num_chars += sprintf(buffer + num_chars, "%s", (const char *)spec->print_args);
-    num_chars += print_expression(buffer + num_chars, op->rop);
+    num_chars += print_expression(buffer + num_chars, op->rop, op);
     return num_chars;
 }
 
 static size_t print_cast_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
     num_chars += sprintf(buffer, "(");
-    num_chars += print_expression(buffer + num_chars, op->lop);
+    num_chars += print_expression(buffer + num_chars, op->lop, op);
     num_chars += sprintf(buffer + num_chars, ")");
-    num_chars += print_expression(buffer + num_chars, op->rop);
+    num_chars += print_expression(buffer + num_chars, op->rop, op);
     return num_chars;
 }
 
 static size_t print_cond_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
-    num_chars += print_expression(buffer, op->pop);
+    num_chars += print_expression(buffer, op->pop, op);
     num_chars += sprintf(buffer + num_chars, " ? ");
-    num_chars += print_expression(buffer + num_chars, op->top);
+    num_chars += print_expression(buffer + num_chars, op->top, op);
     num_chars += sprintf(buffer + num_chars, " : ");
-    num_chars += print_expression(buffer + num_chars, op->fop);
+    num_chars += print_expression(buffer + num_chars, op->fop, op);
     return num_chars;
 }
 
 static size_t print_sizeof_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
     num_chars += sprintf(buffer, "sizeof(");
-    num_chars += print_expression(buffer + num_chars, op->uop);
+    if (op->uop && op->uop->variant == EXPRESSION_OPERATOR) {
+        num_chars += print_operator(buffer + num_chars, op->uop->operator);
+    }
+    else {
+        num_chars += print_expression(buffer + num_chars, op->uop, op);
+    }
     num_chars += sprintf(buffer + num_chars, ")");
     return num_chars;
 }
@@ -262,10 +268,13 @@ static size_t print_postfix_closure_operator(char *buffer, const Operator_t *con
     size_t num_chars = 0;
     const OperatorSpec_t *spec = args;
     const char *pair = spec->print_args;
-    num_chars += print_expression(buffer + num_chars, op->lop);
+    num_chars += print_expression(buffer + num_chars, op->lop, op);
     num_chars += sprintf(buffer + num_chars, "%c", pair[0]);
-    if (op->rop) {
-        num_chars += print_expression(buffer + num_chars, op->rop);
+    if (op->rop && op->rop->variant == EXPRESSION_OPERATOR) {
+        num_chars += print_operator(buffer + num_chars, op->rop->operator);
+    }
+    else {
+        num_chars += print_expression(buffer + num_chars, op->rop, op);
     }
     num_chars += sprintf(buffer + num_chars, "%c", pair[1]);
     return num_chars;
@@ -348,4 +357,10 @@ size_t print_operator(char *buffer, const Operator_t *const op) {
         return 0;
     }
     return spec->print_func(buffer, op, spec);
+}
+
+uint32_t operator_precedence(const OperatorVariant_t variant) {
+    const OperatorSpec_t *spec = &operators[variant];
+    assert(spec->variant == variant);
+    return spec->precedence;
 }

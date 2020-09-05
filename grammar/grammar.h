@@ -14,7 +14,9 @@ TryOperator_t parse_operator(const ConstString_t str);
 
 size_t print_type(char *buffer, const Type_t *const type);
 size_t print_variable(char *buffer, const Variable_t *const var);
-size_t print_expression(char *buffer, const Expression_t *const expr);
+size_t print_expression(char *buffer, const Expression_t *const expr, const Operator_t *const parent_op);
 size_t print_operator(char *buffer, const Operator_t *const op);
+
+uint32_t operator_precedence(const OperatorVariant_t variant);
 
 #endif

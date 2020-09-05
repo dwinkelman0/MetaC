@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #define ReturnUnexpectedCharacters(output) \
     output.status = TRY_ERROR; \
@@ -9,9 +10,33 @@
     output.error.desc = "Unexpected characters"; \
     return output;
 
+/**
+ * If the string starts and ends with matching parentheses, extract the
+ * interior string; returns the original string if no parentheses found
+ */
+ConstString_t strip_wrapping_parens(const ConstString_t str) {
+    ConstString_t working = str;
+    while (working.begin < working.end && working.begin[0] == '(') {
+        TryConstString_t closing = find_closing(working, '(', ')');
+        if (closing.status != TRY_SUCCESS) {
+            break;
+        }
+        ConstString_t ws;
+        ws.begin = closing.value.end;
+        ws.end = working.end;
+        ws = strip_whitespace(ws);
+        if (ws.begin != ws.end) {
+            break;
+        }
+        working.begin = closing.value.begin + 1;
+        working.end = closing.value.end - 1;
+    }
+    return working;
+}
+
 TryExpression_t parse_left_expression(const ConstString_t str) {
     TryExpression_t output;
-    ConstString_t working = strip_whitespace(str);
+    ConstString_t working = strip_wrapping_parens(strip_whitespace(str));
     if (working.begin == working.end) {
         output.status = TRY_NONE;
         return output;
@@ -48,7 +73,7 @@ TryExpression_t parse_left_expression(const ConstString_t str) {
 
 TryExpression_t parse_right_expression(const ConstString_t str) {
     TryExpression_t output;
-    ConstString_t working = strip_whitespace(str);
+    ConstString_t working = strip_wrapping_parens(strip_whitespace(str));
     if (working.begin == working.end) {
         output.status = TRY_NONE;
         return output;
@@ -132,7 +157,12 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
 
 TryExpression_t parse_type_expression(const ConstString_t str) {
     TryExpression_t output;
-    TryVariable_t var = parse_variable(str);
+    ConstString_t working = strip_wrapping_parens(strip_whitespace(str));
+    if (working.begin == working.end) {
+        output.status = TRY_NONE;
+        return output;
+    }
+    TryVariable_t var = parse_variable(working);
     if (var.status == TRY_SUCCESS && !var.value.has_name) {
         output.status = TRY_SUCCESS;
         output.value.variant = EXPRESSION_TYPE;
@@ -144,12 +174,24 @@ TryExpression_t parse_type_expression(const ConstString_t str) {
     return output;
 }
 
-size_t print_expression(char *buffer, const Expression_t *const expr) {
+size_t print_expression(char *buffer, const Expression_t *const expr, const Operator_t *const parent_op) {
+    if (!expr) {
+        return 0;
+    }
     buffer[0] = 0;
     Variable_t var;
+    size_t num_chars = 0;
     switch (expr->variant) {
         case EXPRESSION_OPERATOR:
-            return print_operator(buffer, expr->operator);
+            if (parent_op && operator_precedence(parent_op->variant) < operator_precedence(expr->operator->variant)) {
+                num_chars += sprintf(buffer, "(");
+                num_chars += print_operator(buffer + num_chars, expr->operator);
+                num_chars += sprintf(buffer + num_chars, ")");
+                return num_chars;
+            }
+            else {
+                return print_operator(buffer, expr->operator);
+            }
         case EXPRESSION_IDENTIFIER:
             return sprintf(buffer, "%.*s",
                 (int)(expr->identifier.end - expr->identifier.begin), expr->identifier.begin);
