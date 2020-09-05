@@ -24,6 +24,14 @@ TryExpression_t parse_left_expression(const ConstString_t str) {
         *output.value.decl = var.value;
         return output;
     }
+    TryOperator_t op = parse_operator(working);
+    if (op.status == TRY_SUCCESS) {
+        output.status = TRY_SUCCESS;
+        output.value.variant = EXPRESSION_OPERATOR;
+        output.value.operator = malloc(sizeof(Operator_t));
+        *output.value.operator = op.value;
+        return output;
+    }
     TryConstString_t identifier = find_identifier(working);
     if (identifier.status == TRY_SUCCESS) {
         working = strip_whitespace(strip(working, identifier.value).value);

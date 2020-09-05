@@ -61,6 +61,17 @@ const static Case_t cases[] = {
     {true,  "size_t sz = sizeof(char) * 128", NULL},
     {true,  "size_t sz = sizeof(\"Hello\")", NULL},
     {false, "size_t sz = sizeof(int x)", NULL},
+    {true,  "result = func()", NULL},
+    {true,  "result = func(1, 2, 3)", NULL},
+    {true,  "item = things[3]", NULL},
+    {true,  "item = things[i]", NULL},
+    {true,  "item = things[i][j][k]", NULL},
+    {true,  "x = obj.number", NULL},
+    {true,  "x = obj->number", NULL},
+    {true,  "x.number = 5 + 6", NULL},
+    {true,  "x->number = 5 + 6", NULL},
+    {true,  "(vec3 *const )pt.x = 6", NULL},
+    {true,  "x.value.pointer->object.member->ref = \"Hello\"", NULL},
     {false, NULL, NULL}
 };
 

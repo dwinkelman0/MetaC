@@ -174,6 +174,46 @@ static TryOperator_t parse_sizeof_operator(const ConstString_t str, const void *
     return output;
 }
 
+static TryOperator_t parse_postfix_closure_operator(const ConstString_t str, const void *args) {
+    TryOperator_t output;
+    const OperatorSpec_t *spec = args;
+    const char *pair = spec->parse_args;
+    TryConstString_t closure = find_last_closure_nesting_sensitive(str, pair[0], pair[1]);
+    if (closure.status == TRY_SUCCESS) {
+        ConstString_t ws;
+        ws.begin = closure.value.end;
+        ws.end = str.end;
+        ws = strip_whitespace(ws);
+        if (ws.begin == ws.end) {
+            ConstString_t left_str, right_str;
+            left_str.begin = str.begin;
+            left_str.end = closure.value.begin;
+            right_str.begin = closure.value.begin + 1;
+            right_str.end = closure.value.end - 1;
+            TryExpression_t left_expr = parse_right_expression(left_str);
+            if (left_expr.status == TRY_SUCCESS) {
+                TryExpression_t right_expr = parse_right_expression(right_str);
+                if (right_expr.status == TRY_SUCCESS || right_str.begin == right_str.end) {
+                    output.value.lop = malloc(sizeof(Expression_t));
+                    *output.value.lop = left_expr.value;
+                    if (right_expr.status == TRY_SUCCESS) {
+                        output.value.rop = malloc(sizeof(Expression_t));
+                        *output.value.rop = right_expr.value;
+                    }
+                    else {
+                        output.value.rop = NULL;
+                    }
+                    output.status = TRY_SUCCESS;
+                    output.value.n_operands = 2;
+                    return output;
+                }
+            }
+        }
+    }
+    output.status = TRY_NONE;
+    return output;
+}
+
 static size_t print_unary_prefix_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
     const OperatorSpec_t *spec = args;
@@ -218,6 +258,19 @@ static size_t print_sizeof_operator(char *buffer, const Operator_t *const op, co
     return num_chars;
 }
 
+static size_t print_postfix_closure_operator(char *buffer, const Operator_t *const op, const void *args) {
+    size_t num_chars = 0;
+    const OperatorSpec_t *spec = args;
+    const char *pair = spec->print_args;
+    num_chars += print_expression(buffer + num_chars, op->lop);
+    num_chars += sprintf(buffer + num_chars, "%c", pair[0]);
+    if (op->rop) {
+        num_chars += print_expression(buffer + num_chars, op->rop);
+    }
+    num_chars += sprintf(buffer + num_chars, "%c", pair[1]);
+    return num_chars;
+}
+
 static OperatorSpec_t operators[] = {
     {OP_COMMA,       2, 15,   ",",    ", ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_ASSIGN,      2, 14,   "=",   " = ",  LEFT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
@@ -231,7 +284,7 @@ static OperatorSpec_t operators[] = {
     {OP_AND_ASSIGN,  2, 14,  "&=",  " &= ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_XOR_ASSIGN,  2, 14,  "^=",  " ^= ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_OR_ASSIGN,   2, 14,  "|=",  " |= ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
-    {OP_COND,        2, 13,  NULL,    NULL, RIGHT_EXPR, RIGHT_EXPR, RIGHT_EXPR, parse_cond_operator, print_cond_operator},
+    {OP_COND,        3, 13,  NULL,    NULL, RIGHT_EXPR, RIGHT_EXPR, RIGHT_EXPR, parse_cond_operator, print_cond_operator},
     {OP_LOGICAL_OR,  2, 12,  "||",  " || ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_LOGICAL_AND, 2, 11,  "&&",  " && ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_BITWISE_OR,  2, 10,   "|",   " | ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
@@ -257,7 +310,11 @@ static OperatorSpec_t operators[] = {
     {OP_CAST,        1,  2,  NULL,    NULL,  TYPE_EXPR, RIGHT_EXPR,    NO_EXPR, parse_cast_operator, print_cast_operator},
     {OP_DEREFERENCE, 1,  1,   "*",     "*", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
     {OP_ADDRESS,     1,  1,   "&",     "&", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
-    {OP_SIZEOF,      1,  1,  NULL,    NULL, RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_sizeof_operator, print_sizeof_operator}
+    {OP_SIZEOF,      1,  1,  NULL,    NULL, RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_sizeof_operator, print_sizeof_operator},
+    {OP_CALL,        2,  0,  "()",    "()", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_postfix_closure_operator, print_postfix_closure_operator},
+    {OP_SUBSCRIPT,   2,  0,  "[]",    "[]", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_postfix_closure_operator, print_postfix_closure_operator},
+    {OP_MEM_ACCESS,  2,  0,   ".",     ".", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
+    {OP_PTR_ACCESS,  2,  0,  "->",    "->", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator}
 };
 
 TryOperator_t parse_operator(const ConstString_t str) {
@@ -267,7 +324,7 @@ TryOperator_t parse_operator(const ConstString_t str) {
         output.status = TRY_NONE;
         return output;
     }
-    for (int i = 0; i < 39; ++i) {
+    for (int i = 0; i < 43; ++i) {
         OperatorSpec_t *spec = &operators[i];
         if (!spec->parse_func) {
             continue;
