@@ -34,6 +34,7 @@ static TryOperator_t parse_unary_prefix_operator(const ConstString_t str, const 
         unary_str.begin = prefix.value.end;
         unary_str.end = str.end;
         TryExpression_t unary_expr = parse_right_expression(unary_str);
+        GrammarPropagateError(unary_expr, output);
         if (unary_expr.status == TRY_SUCCESS) {
             output.status = TRY_SUCCESS;
             output.value.n_operands = 1;
@@ -60,57 +61,86 @@ static TryOperator_t parse_binary_operator(const ConstString_t str, const void *
             parse_left_expression(left_str) :
             parse_right_expression(left_str);
         if (left_expr.status == TRY_SUCCESS) {
-            output.value.lop = malloc(sizeof(Expression_t));
-            *output.value.lop = left_expr.value;
+            TryExpression_t right_expr = spec->op2_type == LEFT_EXPR ?
+                parse_left_expression(right_str) :
+                parse_right_expression(right_str);
+            if (right_expr.status == TRY_SUCCESS) {
+                output.value.lop = malloc(sizeof(Expression_t));
+                *output.value.lop = left_expr.value;
+                output.value.rop = malloc(sizeof(Expression_t));
+                *output.value.rop = right_expr.value;
+                output.status = TRY_SUCCESS;
+                output.value.n_operands = 2;
+                return output;
+            }
         }
-        else {
-            output.status = TRY_NONE;
-            return output;
-        }
-        TryExpression_t right_expr = spec->op2_type == LEFT_EXPR ?
-            parse_left_expression(right_str) :
-            parse_right_expression(right_str);
-        if (right_expr.status == TRY_SUCCESS) {
-            output.value.rop = malloc(sizeof(Expression_t));
-            *output.value.rop = right_expr.value;
-        }
-        else {
-            output.status = TRY_NONE;
-            return output;
-        }
-        output.status = TRY_SUCCESS;
-        output.value.n_operands = 2;
-        return output;
     }
-    else {
-        output.status = TRY_NONE;
-        return output;
-    }
+    output.status = TRY_NONE;
+    return output;
 }
 
 static TryOperator_t parse_cast_operator(const ConstString_t str, const void *args) {
     TryOperator_t output;
     TryConstString_t parens = find_closing(str, '(', ')');
     if (parens.status == TRY_SUCCESS) {
-        ConstString_t type_str;
+        ConstString_t type_str, right_str;
         type_str.begin = parens.value.begin + 1;
         type_str.end = parens.value.end - 1;
+        right_str.begin = parens.value.end;
+        right_str.end = str.end;
         TryVariable_t var = parse_variable(type_str);
         if (var.status == TRY_SUCCESS && !var.value.has_name) {
-            output.value.lop = malloc(sizeof(Expression_t));
-            output.value.lop->variant = EXPRESSION_TYPE;
-            output.value.lop->type = malloc(sizeof(Type_t));
-            memcpy(output.value.lop->type, var.value.type, sizeof(Variable_t));
-            ConstString_t right_str;
-            right_str.begin = parens.value.end;
-            right_str.end = str.end;
             TryExpression_t right_expr = parse_right_expression(right_str);
             if (right_expr.status == TRY_SUCCESS) {
+                output.value.lop = malloc(sizeof(Expression_t));
+                output.value.lop->variant = EXPRESSION_TYPE;
+                output.value.lop->type = malloc(sizeof(Type_t));
+                memcpy(output.value.lop->type, var.value.type, sizeof(Variable_t));
                 output.value.rop = malloc(sizeof(Expression_t));
                 *output.value.rop = right_expr.value;
                 output.status = TRY_SUCCESS;
                 output.value.n_operands = 2;
                 return output;
+            }
+        }
+    }
+    output.status = TRY_NONE;
+    return output;
+}
+
+static TryOperator_t parse_cond_operator(const ConstString_t str, const void *args) {
+    TryOperator_t output;
+    TryConstString_t question = find_string_nesting_sensitive(str, const_string_from_cstr("?"));
+    if (question.status == TRY_SUCCESS) {
+        ConstString_t pred_str, working;
+        pred_str.begin = str.begin;
+        pred_str.end = question.value.begin;
+        working.begin = question.value.end;
+        working.end = str.end;
+        TryConstString_t colon = find_last_string_nesting_sensitive(working, const_string_from_cstr(":"));
+        if (colon.status == TRY_SUCCESS) {
+            ConstString_t true_str, false_str;
+            true_str.begin = working.begin;
+            true_str.end = colon.value.begin;
+            false_str.begin = colon.value.end;
+            false_str.end = working.end;
+            TryExpression_t pred_expr = parse_right_expression(pred_str);
+            if (pred_expr.status == TRY_SUCCESS) {
+                TryExpression_t true_expr = parse_right_expression(true_str);
+                if (true_expr.status == TRY_SUCCESS) {
+                    TryExpression_t false_expr = parse_right_expression(false_str);
+                    if (false_expr.status == TRY_SUCCESS) {
+                        output.value.pop = malloc(sizeof(Expression_t));
+                        *output.value.pop = pred_expr.value;
+                        output.value.top = malloc(sizeof(Expression_t));
+                        *output.value.top = true_expr.value;
+                        output.value.fop = malloc(sizeof(Expression_t));
+                        *output.value.fop = false_expr.value;
+                        output.status = TRY_SUCCESS;
+                        output.value.n_operands = 3;
+                        return output;
+                    }
+                }
             }
         }
     }
@@ -144,6 +174,16 @@ static size_t print_cast_operator(char *buffer, const Operator_t *const op, cons
     return num_chars;
 }
 
+static size_t print_cond_operator(char *buffer, const Operator_t *const op, const void *args) {
+    size_t num_chars = 0;
+    num_chars += print_expression(buffer, op->pop);
+    num_chars += sprintf(buffer + num_chars, " ? ");
+    num_chars += print_expression(buffer + num_chars, op->top);
+    num_chars += sprintf(buffer + num_chars, " : ");
+    num_chars += print_expression(buffer + num_chars, op->fop);
+    return num_chars;
+}
+
 static OperatorSpec_t operators[] = {
     {OP_COMMA,       2, 15,   ",",    ", ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_ASSIGN,      2, 14,   "=",   " = ",  LEFT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
@@ -157,7 +197,7 @@ static OperatorSpec_t operators[] = {
     {OP_AND_ASSIGN,  2, 14,  "&=",  " &= ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_XOR_ASSIGN,  2, 14,  "^=",  " ^= ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_OR_ASSIGN,   2, 14,  "|=",  " |= ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
-    {OP_COND,        2, 13,  NULL,    NULL, RIGHT_EXPR, RIGHT_EXPR, RIGHT_EXPR,                  NULL,                  NULL},
+    {OP_COND,        2, 13,  NULL,    NULL, RIGHT_EXPR, RIGHT_EXPR, RIGHT_EXPR, parse_cond_operator, print_cond_operator},
     {OP_LOGICAL_OR,  2, 12,  "||",  " || ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_LOGICAL_AND, 2, 11,  "&&",  " && ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},
     {OP_BITWISE_OR,  2, 10,   "|",   " | ", RIGHT_EXPR, RIGHT_EXPR,    NO_EXPR, parse_binary_operator, print_binary_operator},

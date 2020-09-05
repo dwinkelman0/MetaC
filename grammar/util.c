@@ -278,6 +278,25 @@ TryConstString_t find_string_nesting_sensitive(const ConstString_t str, const Co
     return output;
 }
 
+TryConstString_t find_last_string_nesting_sensitive(const ConstString_t str, const ConstString_t pattern) {
+    TryConstString_t output;
+    output.status = TRY_NONE;
+    ConstString_t working = str;
+    while (working.begin < working.end) {
+        TryConstString_t match = find_string_nesting_sensitive(working, pattern);
+        if (match.status == TRY_NONE) {
+            return output;
+        }
+        else if (match.status == TRY_ERROR) {
+            GrammarPropagateError(match, output);
+        }
+        output.status = TRY_SUCCESS;
+        output.value = match.value;
+        working.begin = match.value.end;
+    }
+    return output;
+}
+
 TryConstString_t find_last_closure_nesting_sensitive(const ConstString_t str, const char opening, const char closing) {
     TryConstString_t output;
     output.status = TRY_NONE;

@@ -334,6 +334,16 @@ TryConstString_t find_string_nesting_sensitive(const ConstString_t str, const Co
  *  NONE: no string was found satisfying the requirements
  *  ERROR: propagating error from closure detection
  */
+TryConstString_t find_last_string_nesting_sensitive(const ConstString_t str, const ConstString_t pattern);
+
+/**
+ * Find the last location of the pattern in the string that is in the same
+ * level of parentheses/braces/brackets/strings/chars as the beginning of the
+ * string
+ *  SUCCESS: a string was found satisfying the requirements
+ *  NONE: no string was found satisfying the requirements
+ *  ERROR: propagating error from closure detection
+ */
 TryConstString_t find_last_closure_nesting_sensitive(const ConstString_t str, const char opening, const char closing);
 
 #endif
