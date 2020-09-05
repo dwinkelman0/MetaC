@@ -57,6 +57,10 @@ const static Case_t cases[] = {
     {true,  "char **str = &whitespace", NULL},
     {true,  "char str = *whitespace", NULL},
     {true,  "int x = a * *ptr", NULL},
+    {true,  "size_t sz = sizeof(char)", NULL},
+    {true,  "size_t sz = sizeof(char) * 128", NULL},
+    {true,  "size_t sz = sizeof(\"Hello\")", NULL},
+    {false, "size_t sz = sizeof(int x)", NULL},
     {false, NULL, NULL}
 };
 

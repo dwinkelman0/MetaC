@@ -9,6 +9,7 @@ TryType_t parse_type(const ConstString_t str);
 TryVariable_t parse_variable(const ConstString_t str);
 TryExpression_t parse_left_expression(const ConstString_t str);
 TryExpression_t parse_right_expression(const ConstString_t str);
+TryExpression_t parse_type_expression(const ConstString_t str);
 TryOperator_t parse_operator(const ConstString_t str);
 
 size_t print_type(char *buffer, const Type_t *const type);

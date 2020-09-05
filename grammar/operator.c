@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef TryOperator_t (*ParseOperatorFunc_t)(const ConstString_t str, const void *args);
 typedef size_t (*PrintOperatorFunc_t)(char *buffer, const Operator_t *const op, const void *args);
@@ -88,14 +89,12 @@ static TryOperator_t parse_cast_operator(const ConstString_t str, const void *ar
         type_str.end = parens.value.end - 1;
         right_str.begin = parens.value.end;
         right_str.end = str.end;
-        TryVariable_t var = parse_variable(type_str);
-        if (var.status == TRY_SUCCESS && !var.value.has_name) {
+        TryExpression_t type_expr = parse_type_expression(type_str);
+        if (type_expr.status == TRY_SUCCESS) {
             TryExpression_t right_expr = parse_right_expression(right_str);
             if (right_expr.status == TRY_SUCCESS) {
                 output.value.lop = malloc(sizeof(Expression_t));
-                output.value.lop->variant = EXPRESSION_TYPE;
-                output.value.lop->type = malloc(sizeof(Type_t));
-                memcpy(output.value.lop->type, var.value.type, sizeof(Variable_t));
+                *output.value.lop = type_expr.value;
                 output.value.rop = malloc(sizeof(Expression_t));
                 *output.value.rop = right_expr.value;
                 output.status = TRY_SUCCESS;
@@ -148,6 +147,33 @@ static TryOperator_t parse_cond_operator(const ConstString_t str, const void *ar
     return output;
 }
 
+static TryOperator_t parse_sizeof_operator(const ConstString_t str, const void *args) {
+    TryOperator_t output;
+    TryConstString_t keyword = find_string(str, const_string_from_cstr("sizeof"));
+    if (keyword.status == TRY_SUCCESS) {
+        ConstString_t working = strip_whitespace(strip(str, keyword.value).value);
+        TryConstString_t parens = find_closing(working, '(', ')');
+        if (parens.status == TRY_SUCCESS) {
+            ConstString_t contents;
+            contents.begin = parens.value.begin + 1;
+            contents.end = parens.value.end - 1;
+            TryExpression_t inner_expr = parse_right_expression(contents);
+            if (inner_expr.status != TRY_SUCCESS) {
+                inner_expr = parse_type_expression(contents);  
+            }
+            if (inner_expr.status == TRY_SUCCESS) {
+                output.value.uop = malloc(sizeof(Expression_t));
+                *output.value.uop = inner_expr.value;
+                output.status = TRY_SUCCESS;
+                output.value.n_operands = 1;
+                return output;
+            }
+        }
+    }
+    output.status = TRY_NONE;
+    return output;
+}
+
 static size_t print_unary_prefix_operator(char *buffer, const Operator_t *const op, const void *args) {
     size_t num_chars = 0;
     const OperatorSpec_t *spec = args;
@@ -181,6 +207,14 @@ static size_t print_cond_operator(char *buffer, const Operator_t *const op, cons
     num_chars += print_expression(buffer + num_chars, op->top);
     num_chars += sprintf(buffer + num_chars, " : ");
     num_chars += print_expression(buffer + num_chars, op->fop);
+    return num_chars;
+}
+
+static size_t print_sizeof_operator(char *buffer, const Operator_t *const op, const void *args) {
+    size_t num_chars = 0;
+    num_chars += sprintf(buffer, "sizeof(");
+    num_chars += print_expression(buffer + num_chars, op->uop);
+    num_chars += sprintf(buffer + num_chars, ")");
     return num_chars;
 }
 
@@ -222,7 +256,8 @@ static OperatorSpec_t operators[] = {
     {OP_BITWISE_NOT, 1,  2,   "~",     "~", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
     {OP_CAST,        1,  2,  NULL,    NULL,  TYPE_EXPR, RIGHT_EXPR,    NO_EXPR, parse_cast_operator, print_cast_operator},
     {OP_DEREFERENCE, 1,  1,   "*",     "*", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
-    {OP_ADDRESS,     1,  1,   "&",     "&", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator}
+    {OP_ADDRESS,     1,  1,   "&",     "&", RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_unary_prefix_operator, print_unary_prefix_operator},
+    {OP_SIZEOF,      1,  1,  NULL,    NULL, RIGHT_EXPR,    NO_EXPR,    NO_EXPR, parse_sizeof_operator, print_sizeof_operator}
 };
 
 TryOperator_t parse_operator(const ConstString_t str) {
@@ -232,7 +267,7 @@ TryOperator_t parse_operator(const ConstString_t str) {
         output.status = TRY_NONE;
         return output;
     }
-    for (int i = 0; i < 38; ++i) {
+    for (int i = 0; i < 39; ++i) {
         OperatorSpec_t *spec = &operators[i];
         if (!spec->parse_func) {
             continue;
