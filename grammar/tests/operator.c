@@ -100,5 +100,5 @@ static TryCharPtr_t case_func(const ConstString_t str) {
 
 int test_operator() {
     printf("Running test_operator() ...\n");
-    return test_fixture(cases, case_func);
+    return test_fixture(cases, case_func, TEST_INPUT_STRING);
 }

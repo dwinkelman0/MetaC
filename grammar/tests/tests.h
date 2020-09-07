@@ -11,10 +11,16 @@ typedef struct {
     const char *output;
 } Case_t;
 
-int test_fixture(const Case_t *const cases, TryCharPtr_t (*const func)(const ConstString_t str));
+typedef enum {
+    TEST_INPUT_STRING,
+    TEST_INPUT_FILE
+} TestInputVariant_t;
+
+int test_fixture(const Case_t *const cases, TryCharPtr_t (*const func)(const ConstString_t str), const TestInputVariant_t input_variant);
 
 int test_types();
 int test_derived_types();
 int test_operator();
+int test_scope();
 
 #endif

@@ -317,6 +317,10 @@ typedef struct VariableLinkedListNode {
     struct VariableLinkedListNode *next;
     struct Variable value;
 } VariableLinkedListNode_t;
+typedef struct StatementLinkedListNode {
+    struct StatementLinkedListNode *next;
+    struct Statement value;
+} StatementLinkedListNode_t;
 
 /**
  * Prefixes:
