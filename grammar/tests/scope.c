@@ -6,9 +6,13 @@
 
 const static Case_t cases[] = {
     {true,  "tests/grammar/scope/basic0.in", NULL},
-    {false, "tests/grammar/scope/basic1.in", NULL},
-    {false, "tests/grammar/scope/basic2.in", NULL},
-    {true,  "tests/grammar/scope/basic3.in", "tests/grammar/scope/basic3.out"},
+    {false, "tests/grammar/scope/basic1-bad_braces.in", NULL},
+    {false, "tests/grammar/scope/basic2-bad_quotes.in", NULL},
+    {true,  "tests/grammar/scope/basic3-bad_op.in", "tests/grammar/scope/basic3-bad_op.out"},
+    {true,  "tests/grammar/scope/basic4-empty.in", NULL},
+    {true,  "tests/grammar/scope/basic5-struct.in", NULL},
+    {true,  "tests/grammar/scope/nested0.in", NULL},
+    {true,  "tests/grammar/scope/nested1-recursion.in", NULL},
     {false, NULL, NULL}
 };
 

@@ -1,0 +1,5 @@
+{
+    struct Control { ControlVariant_t variant; struct Operator condition; struct Scope scope; union { struct { struct Statement continuation; } ctrl_if; struct { struct Operator init; struct Operator increment; } ctrl_for; }; } ctrl;
+    const struct Control *ptr = &ctrl;
+    const void *arg = (const void *)&ctrl;
+}
