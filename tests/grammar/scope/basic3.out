@@ -1,0 +1,4 @@
+{
+    int x = 0;
+    struct Result_t res = func(x, str);
+}
