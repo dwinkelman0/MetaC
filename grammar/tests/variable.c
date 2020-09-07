@@ -16,7 +16,7 @@ const static Case_t cases[] = {
     {true,  "volatile long x", NULL},
     {true,  "const unsigned long long x", NULL},
     {true,  "conststr str", NULL},
-    {true,  "volatileint int", NULL},
+    {false, "volatileint int", NULL},
     {true,  "const conststr str", NULL},
     {true,  "int", NULL},
     {true,  "    int", "int"},

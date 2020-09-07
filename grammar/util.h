@@ -30,15 +30,17 @@ typedef enum {
     TRY_ERROR, // There was an error (with a message)
     TRY_NONE, // There was neither a valid result nor an error
 } GrammarTryStatusVariant_t;
+typedef struct Error {
+    ConstString_t location;
+    const char *desc;
+} Error_t;
+struct ErrorLinkedListNode;
 #define GrammarTryType(type) \
     struct { \
         GrammarTryStatusVariant_t status; \
         union { \
             type value; \
-            struct { \
-                ConstString_t location; \
-                const char *desc; \
-            } error; \
+            struct Error error; \
         }; \
     }
 #define GrammarPropagateError(tried, output) \
@@ -60,6 +62,14 @@ struct Expression;
 struct Operator;
 struct EnumFieldLinkedListNode;
 struct VariableLinkedListNode;
+
+struct Scope;
+struct Statement;
+struct Control;
+struct GlobalContext;
+struct GlobalDefinition;
+struct StatementLinkedListNode;
+struct GlobalDefinitionLinkedListNode;
 
 /**
  * DATA TYPES
@@ -217,6 +227,67 @@ typedef struct Operator {
 } Operator_t;
 
 /**
+ * INTERNAL SCOPE
+ */
+typedef struct Scope {
+    struct StatementLinkedListNode *statements;
+} Scope_t;
+typedef enum {
+    STATEMENT_SCOPE,
+    STATEMENT_CONTROL,
+    STATEMENT_OPERATOR
+} StatementVariant_t;
+typedef struct Statement {
+    StatementVariant_t variant;
+    union {
+        struct Scope *scope;
+        struct Control *control;
+        struct Operator *operator;
+    };
+} Statement_t;
+typedef enum {
+    CONTROL_IF,
+    CONTROL_WHILE,
+    CONTROL_DO,
+    CONTROL_FOR
+} ControlVariant_t;
+typedef struct Control {
+    ControlVariant_t variant;
+    struct Operator condition;
+    struct Scope scope;
+    union {
+        struct {
+            struct Statement continuation;
+        } ctrl_if;
+        struct {
+            struct Operator init;
+            struct Operator increment;
+        } ctrl_for;
+    };
+} Control_t;
+
+/**
+ * GLOBAL SCOPE
+ */
+typedef enum {
+    GLOBAL_DEFINITION_DECL,
+    GLOBAL_DEFINITION_FUNC
+} GlobalDefinitionVariant_t;
+typedef struct GlobalContext {
+    struct GlobalDefinitionLinkedListNode *definitions;
+} GlobalContext_t;
+typedef struct GlobalDefinition {
+    GlobalDefinitionVariant_t variant;
+    union {
+        struct Operator declaration;
+        struct {
+            struct Variable declaration;
+            struct Scope scope;
+        } func;
+    };
+} GlobalDefinition_t;
+
+/**
  * AUXILIARY DATA STRUCTURES
  */
 typedef struct {
@@ -232,7 +303,12 @@ typedef GrammarTryType(EnumField_t) TryEnumField_t;
 typedef GrammarTryType(Expression_t) TryExpression_t;
 typedef GrammarTryType(Operator_t) TryOperator_t;
 typedef GrammarTryType(char *) TryCharPtr_t;
+typedef GrammarTryType(Scope_t) TryScope_t;
 
+typedef struct ErrorLinkedListNode {
+    struct ErrorLinkedListNode *next;
+    struct Error value;
+} ErrorLinkedListNode_t;
 typedef struct EnumFieldLinkedListNode {
     struct EnumFieldLinkedListNode *next;
     struct EnumField value;
@@ -288,8 +364,14 @@ TryConstString_t find_first_string(const ConstString_t str, const ConstString_t 
  * identifier
  *  SUCCESS: an identifier was found
  *  NONE: an identifier was not found
+ *  ERROR: the identifier is a keyword
  */
 TryConstString_t find_identifier(const ConstString_t str);
+
+/**
+ * Check if the string is a keyword
+ */
+bool is_keyword(const ConstString_t str);
 
 /**
  * If the string begins with an integer, return the ConstString and parsed

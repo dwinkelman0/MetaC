@@ -4,8 +4,10 @@
 #include <string.h>
 
 int main() {
-    test_types();
-    test_derived_types();
-    test_operator();
+    size_t num_failures = 0;
+    num_failures += test_types();
+    num_failures += test_derived_types();
+    num_failures += test_operator();
+    printf("\e[1;38;5;207m%zu failures\e[1;0m\n", num_failures);
     return 0;
 }

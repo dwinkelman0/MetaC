@@ -195,6 +195,7 @@ TryVariable_t parse_variable(const ConstString_t str) {
         }
 
         TryConstString_t id_str = find_identifier(working);
+        GrammarPropagateError(id_str, output);
         if (id_str.status == TRY_SUCCESS) {
             working = strip_whitespace(strip(working, id_str.value).value);
             if (working.begin == working.end) {

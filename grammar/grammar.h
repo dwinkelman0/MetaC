@@ -12,6 +12,8 @@ TryExpression_t parse_right_expression(const ConstString_t str);
 TryExpression_t parse_type_expression(const ConstString_t str);
 TryOperator_t parse_operator(const ConstString_t str);
 
+TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t **errors);
+
 size_t print_type(char *buffer, const Type_t *const type);
 size_t print_variable(char *buffer, const Variable_t *const var);
 size_t print_expression(char *buffer, const Expression_t *const expr, const Operator_t *const parent_op);

@@ -25,6 +25,9 @@ const static Case_t cases[] = {
     {true,  "unsigned long long", NULL},
     {true,  "float", NULL},
     {true,  "double", NULL},
+    {false, "struct int", NULL},
+    {false, "struct enum", NULL},
+    {false, "struct register", NULL},
     {true,  "struct Thing_t", NULL},
     {true,  "union Thing_t", NULL},
     {true,  "enum Thing_t", NULL},
@@ -43,6 +46,7 @@ const static Case_t cases[] = {
     {true,  "enum { RED = 5, YELLOW, GREEN }", "enum { RED = 5, YELLOW = 6, GREEN = 7 }"},
     {false, "enum { RED = }", NULL},
     {false, "enum { RED GREEN }", NULL},
+    {false, "enum { struct }", NULL},
     {true,  "one", NULL},
     {false, NULL, NULL}
 };

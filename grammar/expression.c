@@ -4,12 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ReturnUnexpectedCharacters(output) \
-    output.status = TRY_ERROR; \
-    output.error.location = working; \
-    output.error.desc = "Unexpected characters"; \
-    return output;
-
 /**
  * If the string starts and ends with matching parentheses, extract the
  * interior string; returns the original string if no parentheses found
@@ -61,14 +55,18 @@ TryExpression_t parse_left_expression(const ConstString_t str) {
     if (identifier.status == TRY_SUCCESS) {
         working = strip_whitespace(strip(working, identifier.value).value);
         if (working.begin != working.end) {
-            ReturnUnexpectedCharacters(output);
+            output.status = TRY_NONE;
+            return output;
         }
         output.status = TRY_SUCCESS;
         output.value.variant = EXPRESSION_IDENTIFIER;
         output.value.identifier = new_alloc_const_string_from_const_str(identifier.value);
         return output;
     }
-    GrammarPropagateError(var, output);
+    output.status = TRY_ERROR;
+    output.error.location = str;
+    output.error.desc = "Expected a left expression";
+    return output;
 }
 
 TryExpression_t parse_right_expression(const ConstString_t str) {
@@ -90,7 +88,8 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
     if (integer.status == TRY_SUCCESS) {
         working = strip_whitespace(strip(working, integer.value.str).value);
         if (working.begin != working.end) {
-            ReturnUnexpectedCharacters(output);
+            output.status = TRY_NONE;
+            return output;
         }
         output.status = TRY_SUCCESS;
         output.value.variant = EXPRESSION_UINT_LIT;
@@ -98,13 +97,12 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
         return output;
     }
     TryConstString_t str_lit = find_string_lit(working, '"', '\\');
-    if (str_lit.status == TRY_ERROR) {
-        GrammarPropagateError(str_lit, output);
-    }
-    else if (str_lit.status == TRY_SUCCESS) {
+    GrammarPropagateError(str_lit, output);
+    if (str_lit.status == TRY_SUCCESS) {
         working = strip_whitespace(strip(working, str_lit.value).value);
         if (working.begin != working.end) {
-            ReturnUnexpectedCharacters(output);
+            output.status = TRY_NONE;
+            return output;
         }
         ConstString_t contents;
         contents.begin = str_lit.value.begin + 1;
@@ -115,13 +113,12 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
         return output;
     }
     TryConstString_t char_lit = find_string_lit(working, '\'', '\\');
-    if (char_lit.status == TRY_ERROR) {
-        GrammarPropagateError(char_lit, output);
-    }
-    else if (char_lit.status == TRY_SUCCESS) {
+    GrammarPropagateError(char_lit, output);
+    if (char_lit.status == TRY_SUCCESS) {
         working = strip_whitespace(strip(working, char_lit.value).value);
         if (working.begin != working.end) {
-            ReturnUnexpectedCharacters(output);
+            output.status = TRY_NONE;
+            return output;
         }
         ConstString_t contents;
         contents.begin = char_lit.value.begin + 1;
@@ -141,17 +138,21 @@ TryExpression_t parse_right_expression(const ConstString_t str) {
         }
     }
     TryConstString_t identifier = find_identifier(working);
+    GrammarPropagateError(identifier, output);
     if (identifier.status == TRY_SUCCESS) {
         working = strip_whitespace(strip(working, identifier.value).value);
         if (working.begin != working.end) {
-            ReturnUnexpectedCharacters(output);
+            output.status = TRY_NONE;
+            return output;
         }
         output.status = TRY_SUCCESS;
         output.value.variant = EXPRESSION_IDENTIFIER;
         output.value.identifier = new_alloc_const_string_from_const_str(identifier.value);
         return output;
     }
-    output.status = TRY_NONE;
+    output.status = TRY_ERROR;
+    output.error.location = str;
+    output.error.desc = "Expected a right expression";
     return output;
 }
 

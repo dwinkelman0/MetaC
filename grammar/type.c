@@ -22,7 +22,7 @@ const static PrimitiveMapping_t primitive_map[] = {
     {PRIMITIVE_SHORT, {"short", NULL}},
     {PRIMITIVE_SHORT, {"signed", "short", NULL}},
     {PRIMITIVE_UNSIGNED_SHORT, {"unsigned", "short", NULL}},
-    {PRIMITIVE_INT, {"short", NULL}},
+    {PRIMITIVE_INT, {"int", NULL}},
     {PRIMITIVE_INT, {"signed", "int", NULL}},
     {PRIMITIVE_UNSIGNED_INT, {"unsigned", "int", NULL}},
     {PRIMITIVE_LONG_LONG, {"long", "long", NULL}},
@@ -99,6 +99,7 @@ TryEnumField_t parse_enum(const ConstString_t str, const int expected_value) {
         return output;
     }
     TryConstString_t name = find_identifier(working);
+    GrammarPropagateError(name, output);
     if (name.status == TRY_NONE) {
         output.status = TRY_ERROR;
         output.error.location = str;
@@ -188,6 +189,7 @@ TryType_t parse_type(const ConstString_t str) {
     if (ws.status == TRY_SUCCESS) {
         working = strip(working, ws.value).value;
         TryConstString_t name = find_identifier(working);
+        GrammarPropagateError(name, output);
         if (name.status == TRY_SUCCESS) {
             output.value.compound.name = new_alloc_const_string_from_const_str(name.value);
             output.value.compound.has_name = true;

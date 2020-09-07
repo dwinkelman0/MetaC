@@ -157,7 +157,60 @@ TryConstString_t find_identifier(const ConstString_t str) {
     output.status = TRY_SUCCESS;
     output.value.begin = str.begin;
     output.value.end = it;
+    if (is_keyword(output.value)) {
+        output.status = TRY_ERROR;
+        output.error.location = output.value;
+        output.error.desc = "Identifier cannot be a keyword";
+    }
     return output;
+}
+
+const char *keywords[] = {
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extern",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "int",
+    "long",
+    "register",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "struct",
+    "switch",
+    "typedef",
+    "union",
+    "unsigned",
+    "void",
+    "volatile",
+    "while",
+    NULL
+};
+
+bool is_keyword(const ConstString_t str) {
+    const char **keyword = keywords;
+    while (*keyword) {
+        size_t output_len = str.end - str.begin;
+        size_t keyword_len = strlen(*keyword);
+        if (output_len == keyword_len && !strncmp(*keyword, str.begin, output_len)) {
+            return true;
+        }
+        ++keyword;
+    }
+    return false;
 }
 
 TryIntegerLiteral_t find_integer(const ConstString_t str) {
