@@ -13,6 +13,8 @@ const static Case_t cases[] = {
     {true,  "tests/grammar/scope/basic5-struct.in", NULL},
     {true,  "tests/grammar/scope/nested0.in", NULL},
     {true,  "tests/grammar/scope/nested1-recursion.in", NULL},
+    {true,  "tests/grammar/scope/cond0-if.in", NULL},
+    {true,  "tests/grammar/scope/cond1-for.in", NULL},
     {false, NULL, NULL}
 };
 
@@ -20,7 +22,8 @@ static TryCharPtr_t case_func(const ConstString_t str) {
     TryCharPtr_t output;
     static char buffer[0x10000];
     ErrorLinkedListNode_t *errors = NULL;
-    TryScope_t op = parse_scope(str, &errors);
+    ErrorLinkedListNode_t **errors_head = &errors;
+    TryScope_t op = parse_scope(str, &errors_head);
     if (op.status == TRY_SUCCESS) {
         print_scope(buffer, &op.value, 0);
         output.status = TRY_SUCCESS;

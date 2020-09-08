@@ -240,6 +240,7 @@ typedef enum {
 } StatementVariant_t;
 typedef struct Statement {
     StatementVariant_t variant;
+    ConstString_t str;
     union {
         struct Scope *scope;
         struct Control *control;
@@ -255,15 +256,15 @@ typedef enum {
 } ControlVariant_t;
 typedef struct Control {
     ControlVariant_t variant;
-    struct Operator condition;
-    struct Scope scope;
+    struct Expression condition;
+    struct Statement exec;
     union {
         struct {
-            struct Statement continuation;
+            struct Statement *continuation;
         } ctrl_if;
         struct {
-            struct Operator init;
-            struct Operator increment;
+            struct Expression *init;
+            struct Expression *increment;
         } ctrl_for;
     };
 } Control_t;
@@ -306,6 +307,7 @@ typedef GrammarTryType(Expression_t) TryExpression_t;
 typedef GrammarTryType(Operator_t) TryOperator_t;
 typedef GrammarTryType(char *) TryCharPtr_t;
 typedef GrammarTryType(Scope_t) TryScope_t;
+typedef GrammarTryType(Statement_t) TryStatement_t;
 
 typedef struct ErrorLinkedListNode {
     struct ErrorLinkedListNode *next;

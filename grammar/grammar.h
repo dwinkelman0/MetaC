@@ -26,7 +26,7 @@ TryOperator_t parse_operator(const ConstString_t str);
  *         scopes/controls have syntactic problem, expressions not terminated
  *         in semicolons)
  */
-TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t **const errors);
+TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t ***const errors);
 
 size_t print_type(char *buffer, const Type_t *const type);
 size_t print_variable(char *buffer, const Variable_t *const var);

@@ -1,0 +1,5 @@
+{
+    for (const char *it = str; *it != NULL; it += 1) {
+        c = *it;
+    }
+}

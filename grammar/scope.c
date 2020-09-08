@@ -3,7 +3,197 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t **const errors) {
+/**
+ * Parse a statement
+ *  SUCCESS: a statement was parsed
+ *  NONE: a statement was not found
+ *  ERROR: there was an error with statement syntax
+ */
+TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t ***const errors, ConstString_t *const stmt_str) {
+    TryStatement_t output;
+    output.value.variant = STATEMENT_DECLARATION;
+    ConstString_t working = strip_whitespace(str);
+    stmt_str->begin = str.begin;
+
+    if (*working.begin == '{') {
+        TryConstString_t braces = find_closing(working, '{', '}');
+        GrammarPropagateError(braces, output);
+        if (braces.status == TRY_SUCCESS) {
+            stmt_str->end = braces.value.end;
+            TryScope_t scope = parse_scope(braces.value, errors);
+            GrammarPropagateError(scope, output);
+            if (scope.status == TRY_SUCCESS) {
+                output.status = TRY_SUCCESS;
+                output.value.str = working;
+                output.value.variant = STATEMENT_SCOPE;
+                output.value.scope = malloc(sizeof(Scope_t));
+                *output.value.scope = scope.value;
+                return output;
+            }
+        }
+    }
+
+    TryConstString_t keyword;
+    Control_t control;
+    if ((keyword = find_string(working, const_string_from_cstr("if"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_IF;
+    }
+    else if ((keyword = find_string(working, const_string_from_cstr("for"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_FOR;
+    }
+    else if ((keyword = find_string(working, const_string_from_cstr("while"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_WHILE;
+    }
+    else if ((keyword = find_string(working, const_string_from_cstr("do"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_DO;
+    }
+    if (output.value.variant == STATEMENT_CONTROL) {
+        ConstString_t cont_working = strip_whitespace(strip(working, keyword.value).value);
+        if (control.variant == CONTROL_IF || control.variant == CONTROL_WHILE || control.variant == CONTROL_FOR) {
+            TryConstString_t cond_str = find_closing(cont_working, '(', ')');
+            GrammarPropagateError(cond_str, output);
+            if (cond_str.status == TRY_NONE) {
+                output.status = TRY_ERROR;
+                output.error.location = cont_working;
+                output.error.desc = "Control statement needs condition in ()";
+                return output;
+            }
+            cont_working = strip_whitespace(strip(cont_working, cond_str.value).value);
+            cond_str.value.begin += 1;
+            cond_str.value.end -= 1;
+            if (control.variant == CONTROL_IF || control.variant == CONTROL_WHILE) {
+                TryExpression_t cond = parse_right_expression(cond_str.value);
+                GrammarPropagateError(cond_str, output);
+                if (cond.status == TRY_NONE) {
+                    output.status = TRY_ERROR;
+                    output.error.location = cond_str.value;
+                    output.error.desc = "Control statement needs a condition in ()";
+                    return output;
+                }
+                control.condition = cond.value;
+            }
+            else {
+                ConstString_t init_str, check_str, inc_str;
+                TryConstString_t semicolon1_str = find_string_nesting_sensitive(cond_str.value, const_string_from_cstr(";"));
+                GrammarPropagateError(semicolon1_str, output);
+                if (semicolon1_str.status == TRY_NONE) {
+                    output.status = TRY_ERROR;
+                    output.error.location = cond_str.value;
+                    output.error.desc = "For statement needs a first ';'";
+                    return output;
+                }
+                init_str.begin = cond_str.value.begin;
+                init_str.end = semicolon1_str.value.begin;
+                cond_str.value.begin = semicolon1_str.value.end;
+                TryConstString_t semicolon2_str = find_string_nesting_sensitive(cond_str.value, const_string_from_cstr(";"));
+                GrammarPropagateError(semicolon2_str, output);
+                if (semicolon2_str.status == TRY_NONE) {
+                    output.status = TRY_ERROR;
+                    output.error.location = cond_str.value;
+                    output.error.desc = "For statement needs a second ';'";
+                    return output;
+                }
+                check_str.begin = semicolon1_str.value.end;
+                check_str.end = semicolon2_str.value.begin;
+                inc_str.begin = semicolon2_str.value.end;
+                inc_str.end = cond_str.value.end;
+                TryExpression_t init_expr = parse_right_expression(init_str);
+                GrammarPropagateError(init_expr, output);
+                if (init_expr.status == TRY_NONE) {
+                    control.ctrl_for.init = NULL;
+                }
+                else {
+                    control.ctrl_for.init = malloc(sizeof(Expression_t));
+                    *control.ctrl_for.init = init_expr.value;
+                }
+                TryExpression_t cond_expr = parse_right_expression(check_str);
+                GrammarPropagateError(cond_expr, output);
+                if (cond_expr.status == TRY_NONE) {
+                    control.condition.variant = EXPRESSION_UINT_LIT;
+                    control.condition.uint_lit = 1;
+                }
+                else {
+                    control.condition = cond_expr.value;
+                }
+                TryExpression_t inc_expr = parse_right_expression(inc_str);
+                GrammarPropagateError(inc_expr, output);
+                if (inc_expr.status == TRY_NONE) {
+                    control.ctrl_for.increment = NULL;
+                }
+                else {
+                    control.ctrl_for.increment = malloc(sizeof(Expression_t));
+                    *control.ctrl_for.increment = inc_expr.value;
+                }
+            }
+        }
+        ConstString_t exec_str;
+        TryStatement_t exec = parse_statement(cont_working, errors, &exec_str);
+        GrammarPropagateError(exec, output);
+        if (exec.status == TRY_NONE) {
+            output.status = TRY_ERROR;
+            output.error.location = cont_working;
+            output.error.desc = "Control needs a scope";
+            return output;
+        }
+        control.exec = exec.value;
+        output.status = TRY_SUCCESS;
+        output.value.control = malloc(sizeof(Control_t));
+        *output.value.control = control;
+        stmt_str->end = exec_str.end;
+        return output;
+    }
+
+    TryConstString_t semicolon = find_string_nesting_sensitive(working, const_string_from_cstr(";"));
+    GrammarPropagateError(semicolon, output);
+    if (semicolon.status == TRY_NONE) {
+        output.status = TRY_ERROR;
+        output.error.location = str;
+        output.error.desc = "Expected a semicolon";
+        return output;
+    }
+    stmt_str->end = semicolon.value.end;
+    ConstString_t op_str;
+    op_str.begin = working.begin;
+    op_str.end = semicolon.value.begin;
+    TryOperator_t op = parse_operator(op_str);
+    if (op.status == TRY_SUCCESS) {
+        output.status = TRY_SUCCESS;
+        output.value.str.begin = op_str.begin;
+        output.value.str.end = semicolon.value.end;
+        output.value.variant = STATEMENT_OPERATOR;
+        output.value.operator = malloc(sizeof(Operator_t));
+        *output.value.operator = op.value;
+        return output;
+    }
+    else {
+        TryVariable_t var = parse_variable(op_str);
+        if (var.status == TRY_SUCCESS && var.value.has_name) {
+            output.status = TRY_SUCCESS;
+            output.value.str.begin = op_str.begin;
+            output.value.str.end = semicolon.value.end;
+            output.value.variant = STATEMENT_DECLARATION;
+            output.value.declaration = malloc(sizeof(Variable_t));
+            *output.value.declaration = var.value;
+            return output;
+        }
+        else {
+            **errors = malloc(sizeof(ErrorLinkedListNode_t));
+            (**errors)->next = NULL;
+            (**errors)->value.location = op_str;
+            (**errors)->value.desc = "Operator or declaration did not parse";
+            *errors = &(**errors)->next;
+        }
+    }
+
+    output.status = TRY_NONE;
+    return output;
+}
+
+TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t ***const errors) {
     TryScope_t output;
     if (str.end - str.begin <= 2 || *str.begin != '{' || *(str.end - 1) != '}') {
         output.status = TRY_ERROR;
@@ -14,77 +204,23 @@ TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t **const er
     output.status = TRY_SUCCESS;
     output.value.statements = NULL;
     StatementLinkedListNode_t **stmt_head = &output.value.statements;
-    ErrorLinkedListNode_t **error_head = errors;
     ConstString_t working;
     working.begin = str.begin + 1;
     working.end = str.end - 1;
     working = strip_whitespace(working);
     while (working.begin < working.end) {
-
-        if (*working.begin == '{') {
-            TryConstString_t braces = find_closing(working, '{', '}');
-            GrammarPropagateError(braces, output);
-            if (braces.status == TRY_SUCCESS) {
-                working.begin = braces.value.end;
-                working = strip_whitespace(working);
-                TryScope_t scope = parse_scope(braces.value, error_head);
-                GrammarPropagateError(scope, output);
-                if (scope.status == TRY_SUCCESS) {
-                    *stmt_head = malloc(sizeof(StatementLinkedListNode_t));
-                    (*stmt_head)->next = NULL;
-                    (*stmt_head)->value.variant = STATEMENT_SCOPE;
-                    (*stmt_head)->value.scope = malloc(sizeof(Scope_t));
-                    *(*stmt_head)->value.scope = scope.value;
-                    stmt_head = &(*stmt_head)->next;
-                    while (*error_head) {
-                        error_head = &(*error_head)->next;
-                    }
-                }
-            }
-            continue;
-        }
-
-        TryConstString_t semicolon = find_string_nesting_sensitive(working, const_string_from_cstr(";"));
-        GrammarPropagateError(semicolon, output);
-        if (semicolon.status == TRY_NONE) {
-            output.status = TRY_ERROR;
-            output.error.location = working;
-            output.error.desc = "Expected a semicolon";
-            return output;
-        }
-        ConstString_t op_str;
-        op_str.begin = working.begin;
-        op_str.end = semicolon.value.begin;
-        TryOperator_t op = parse_operator(op_str);
-        if (op.status == TRY_SUCCESS) {
+        ConstString_t stmt_str;
+        TryStatement_t stmt = parse_statement(working, errors, &stmt_str);
+        GrammarPropagateError(stmt, output);
+        working = strip_whitespace(strip(working, stmt_str).value);
+        if (stmt.status == TRY_SUCCESS) {
             *stmt_head = malloc(sizeof(StatementLinkedListNode_t));
             (*stmt_head)->next = NULL;
-            (*stmt_head)->value.variant = STATEMENT_OPERATOR;
-            (*stmt_head)->value.operator = malloc(sizeof(Operator_t));
-            *(*stmt_head)->value.operator = op.value;
+            (*stmt_head)->value = stmt.value;
             stmt_head = &(*stmt_head)->next;
         }
-        else {
-            TryVariable_t var = parse_variable(op_str);
-            if (var.status == TRY_SUCCESS && var.value.has_name) {
-                *stmt_head = malloc(sizeof(StatementLinkedListNode_t));
-                (*stmt_head)->next = NULL;
-                (*stmt_head)->value.variant = STATEMENT_DECLARATION;
-                (*stmt_head)->value.declaration = malloc(sizeof(Variable_t));
-                *(*stmt_head)->value.declaration = var.value;
-                stmt_head = &(*stmt_head)->next;
-            }
-            else {
-                *error_head = malloc(sizeof(ErrorLinkedListNode_t));
-                (*error_head)->next = NULL;
-                (*error_head)->value.location = op_str;
-                (*error_head)->value.desc = "Operator did not parse";
-                error_head = &(*error_head)->next;
-            }
-        }
-        working.begin = semicolon.value.end;
-        working = strip_whitespace(working);
     }
+    output.status = TRY_SUCCESS;
     return output;
 }
 
@@ -95,7 +231,9 @@ size_t print_scope(char *buffer, const Scope_t *const scope, const int32_t depth
     if (statement) {
         num_chars += sprintf(buffer, "{\n");
         while (statement) {
+            num_chars += sprintf(buffer + num_chars, "%*s", (depth + 1) * 4, "");
             num_chars += print_statement(buffer + num_chars, &statement->value, depth + 1);
+            num_chars += sprintf(buffer + num_chars, "\n");
             statement = statement->next;
         }
         num_chars += sprintf(buffer + num_chars, "%*s}", 4 * depth, "");
@@ -111,20 +249,41 @@ size_t print_statement(char *buffer, const Statement_t *const stmt, const uint32
     size_t num_chars = 0;
     switch (stmt->variant) {
         case STATEMENT_OPERATOR:
-            num_chars += sprintf(buffer, "%*s", depth * 4, "");
             num_chars += print_operator(buffer + num_chars, stmt->operator);
-            num_chars += sprintf(buffer + num_chars, ";\n");
+            num_chars += sprintf(buffer + num_chars, ";");
             break;
         case STATEMENT_SCOPE:
-            num_chars += sprintf(buffer, "%*s", depth * 4, "");
             num_chars += print_scope(buffer + num_chars, stmt->scope, depth);
-            num_chars += sprintf(buffer + num_chars, "\n");
             break;
         case STATEMENT_DECLARATION:
-            num_chars += sprintf(buffer, "%*s", depth * 4, "");
             num_chars += print_variable(buffer + num_chars, stmt->declaration);
-            num_chars += sprintf(buffer + num_chars, ";\n");
+            num_chars += sprintf(buffer + num_chars, ";");
             break;
+        case STATEMENT_CONTROL:
+            switch (stmt->control->variant) {
+                case CONTROL_IF:
+                    num_chars += sprintf(buffer + num_chars, "if (");
+                    num_chars += print_expression(buffer + num_chars, &stmt->control->condition, NULL);
+                    num_chars += sprintf(buffer + num_chars, ") ");
+                    num_chars += print_statement(buffer + num_chars, &stmt->control->exec, depth);
+                    break;
+                case CONTROL_WHILE:
+                    num_chars += sprintf(buffer + num_chars, "while (");
+                    num_chars += print_expression(buffer + num_chars, &stmt->control->condition, NULL);
+                    num_chars += sprintf(buffer + num_chars, ") ");
+                    num_chars += print_statement(buffer + num_chars, &stmt->control->exec, depth);
+                    break;
+                case CONTROL_FOR:
+                    num_chars += sprintf(buffer + num_chars, "for (");
+                    num_chars += print_expression(buffer + num_chars, stmt->control->ctrl_for.init, NULL);
+                    num_chars += sprintf(buffer + num_chars, "; ");
+                    num_chars += print_expression(buffer + num_chars, &stmt->control->condition, NULL);
+                    num_chars += sprintf(buffer + num_chars, "; ");
+                    num_chars += print_expression(buffer + num_chars, stmt->control->ctrl_for.increment, NULL);
+                    num_chars += sprintf(buffer + num_chars, ") ");
+                    num_chars += print_statement(buffer + num_chars, &stmt->control->exec, depth);
+                    break;
+            }
     }
     return num_chars;
 }
