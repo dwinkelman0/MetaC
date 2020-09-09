@@ -174,7 +174,8 @@ typedef enum {
     EXPRESSION_DECLARATION,
     EXPRESSION_STR_LIT,
     EXPRESSION_CHAR_LIT,
-    EXPRESSION_UINT_LIT
+    EXPRESSION_UINT_LIT,
+    EXPRESSION_VOID
 } ExpressionVariant_t;
 typedef struct Expression {
     ExpressionVariant_t variant;
@@ -252,20 +253,28 @@ typedef enum {
     CONTROL_IF,
     CONTROL_WHILE,
     CONTROL_DO,
-    CONTROL_FOR
+    CONTROL_FOR,
+    CONTROL_BREAK,
+    CONTROL_CONTINUE,
+    CONTROL_RETURN
 } ControlVariant_t;
 typedef struct Control {
     ControlVariant_t variant;
-    struct Expression condition;
-    struct Statement exec;
     union {
         struct {
-            struct Statement *continuation;
-        } ctrl_if;
-        struct {
-            struct Expression *init;
-            struct Expression *increment;
-        } ctrl_for;
+            struct Expression condition;
+            struct Statement exec;
+            union {
+                struct {
+                    struct Statement *continuation;
+                } ctrl_if;
+                struct {
+                    struct Expression *init;
+                    struct Expression *increment;
+                } ctrl_for;
+            };
+        };
+        struct Expression ret;
     };
 } Control_t;
 

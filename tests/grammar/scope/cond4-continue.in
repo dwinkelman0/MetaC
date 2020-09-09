@@ -1,0 +1,9 @@
+{
+    for (const char *it = str; *it != NULL; it += 1) {
+        if ('0' <= *it && *it <= '9') {
+            continue;
+        }
+        printf("%c", *it);
+    }
+    printf("\n");
+}

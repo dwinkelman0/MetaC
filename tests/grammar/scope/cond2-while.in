@@ -1,0 +1,7 @@
+{
+    const char *it = str;
+    while (*it) {
+        it += 1;
+    }
+    printf("Has %d chars", str - it);
+}

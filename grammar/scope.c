@@ -35,6 +35,63 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
 
     TryConstString_t keyword;
     Control_t control;
+    if ((keyword = find_string(working, const_string_from_cstr("break"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_BREAK;
+    }
+    else if ((keyword = find_string(working, const_string_from_cstr("continue"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_CONTINUE;
+    }
+    else if ((keyword = find_string(working, const_string_from_cstr("return"))).status == TRY_SUCCESS) {
+        output.value.variant = STATEMENT_CONTROL;
+        control.variant = CONTROL_RETURN;
+    }
+    if (output.value.variant == STATEMENT_CONTROL) {
+        TryConstString_t semicolon = find_string_nesting_sensitive(working, const_string_from_cstr(";"));
+        GrammarPropagateError(semicolon, output);
+        if (semicolon.status == TRY_NONE) {
+            output.status = TRY_ERROR;
+            output.error.location = keyword.value;
+            output.error.desc = "Control statement should be ended by a ';'";
+            return output;
+        }
+        ConstString_t following;
+        following.begin = keyword.value.end;
+        following.end = semicolon.value.begin;
+        TryConstString_t ws = find_whitespace(following);
+        following = strip_whitespace(following);
+        if (following.begin != following.end) {
+            if (control.variant == CONTROL_RETURN) {
+                TryExpression_t expr = parse_right_expression(following);
+                GrammarPropagateError(expr, output);
+                if (expr.status == TRY_NONE) {
+                    output.status = TRY_ERROR;
+                    output.error.location = following;
+                    output.error.desc = "return accepts only right expressions";
+                    return output;
+                }
+                control.ret = expr.value;
+            }
+            else {
+                output.status = TRY_ERROR;
+                output.error.location = following;
+                output.error.desc = "break/continue does not accept data";
+                return output;
+            }
+        }
+        else if (control.variant == CONTROL_RETURN) {
+            control.ret.variant = EXPRESSION_VOID;
+        }
+        output.status = TRY_SUCCESS;
+        output.value.control = malloc(sizeof(Control_t));
+        *output.value.control = control;
+        output.value.str.begin = working.begin;
+        output.value.str.end = semicolon.value.end;
+        stmt_str->end = semicolon.value.end;
+        return output;
+    }
+
     if ((keyword = find_string(working, const_string_from_cstr("if"))).status == TRY_SUCCESS) {
         output.value.variant = STATEMENT_CONTROL;
         control.variant = CONTROL_IF;
@@ -144,6 +201,8 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
         output.value.control = malloc(sizeof(Control_t));
         *output.value.control = control;
         stmt_str->end = exec_str.end;
+        output.value.str.begin = working.begin;
+        output.value.str.end = exec_str.end;
         return output;
     }
 
@@ -283,7 +342,24 @@ size_t print_statement(char *buffer, const Statement_t *const stmt, const uint32
                     num_chars += sprintf(buffer + num_chars, ") ");
                     num_chars += print_statement(buffer + num_chars, &stmt->control->exec, depth);
                     break;
+                case CONTROL_BREAK:
+                    num_chars += sprintf(buffer + num_chars, "break;");
+                    break;
+                case CONTROL_CONTINUE:
+                    num_chars += sprintf(buffer + num_chars, "continue;");
+                    break;
+                case CONTROL_RETURN:
+                    if (stmt->control->ret.variant == EXPRESSION_VOID) {
+                        num_chars += sprintf(buffer + num_chars, "return;");
+                    }
+                    else {
+                        num_chars += sprintf(buffer + num_chars, "return ");
+                        num_chars += print_expression(buffer + num_chars, &stmt->control->ret, NULL);
+                        num_chars += sprintf(buffer + num_chars, ";");
+                    }
+                    break;
             }
+            break;
     }
     return num_chars;
 }

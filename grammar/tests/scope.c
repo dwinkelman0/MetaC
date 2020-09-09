@@ -15,6 +15,18 @@ const static Case_t cases[] = {
     {true,  "tests/grammar/scope/nested1-recursion.in", NULL},
     {true,  "tests/grammar/scope/cond0-if.in", NULL},
     {true,  "tests/grammar/scope/cond1-for.in", NULL},
+    {true,  "tests/grammar/scope/cond2-while.in", NULL},
+    {true,  "tests/grammar/scope/cond3-break.in", NULL},
+    {true,  "tests/grammar/scope/cond4-continue.in", NULL},
+    {false, "tests/grammar/scope/cond5-break_no_semicolon.in", NULL},
+    {true,  "tests/grammar/scope/cond6-for_no_check.in", "tests/grammar/scope/cond6-for_no_check.out"},
+    {true,  "tests/grammar/scope/cond7-for_no_init_inc.in", NULL},
+    {false, "tests/grammar/scope/cond8-if_no_cond.in", NULL},
+    {true,  "tests/grammar/scope/cond9-if_inline.in", NULL},
+    {true,  "tests/grammar/scope/cond10-if_inline.in", NULL},
+    {true,  "tests/grammar/scope/cond11-return.in", NULL},
+    {true,  "tests/grammar/scope/cond12-return_value.in", NULL},
+    {false, "tests/grammar/scope/cond13-break_value.in", NULL},
     {false, NULL, NULL}
 };
 
