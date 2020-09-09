@@ -281,27 +281,6 @@ typedef struct Control {
 } Control_t;
 
 /**
- * GLOBAL SCOPE
- */
-typedef enum {
-    GLOBAL_DEFINITION_DECL,
-    GLOBAL_DEFINITION_FUNC
-} GlobalDefinitionVariant_t;
-typedef struct GlobalContext {
-    struct GlobalDefinitionLinkedListNode *definitions;
-} GlobalContext_t;
-typedef struct GlobalDefinition {
-    GlobalDefinitionVariant_t variant;
-    union {
-        struct Operator declaration;
-        struct {
-            struct Variable declaration;
-            struct Scope scope;
-        } func;
-    };
-} GlobalDefinition_t;
-
-/**
  * AUXILIARY DATA STRUCTURES
  */
 typedef struct {

@@ -13,6 +13,7 @@ const static Case_t cases[] = {
     {true,  "tests/grammar/scope/basic5-struct.in", NULL},
     {true,  "tests/grammar/scope/basic6-typedef.in", NULL},
     {true,  "tests/grammar/scope/basic7-bad_typedef.in", "tests/grammar/scope/basic7-bad_typedef.out"},
+    {true,  "tests/grammar/scope/basic8-global.in", NULL},
     {true,  "tests/grammar/scope/nested0.in", NULL},
     {true,  "tests/grammar/scope/nested1-recursion.in", NULL},
     {true,  "tests/grammar/scope/cond0-if.in", NULL},
@@ -47,7 +48,8 @@ static TryCharPtr_t case_func(const ConstString_t str) {
     }
 
     if (op.status == TRY_SUCCESS) {
-        print_scope(buffer, &op.value, 0);
+        print_scope(buffer, &op.value, -1);
+        buffer[strlen(buffer) - 1] = 0;
         output.status = TRY_SUCCESS;
         output.value = buffer;
         return output;

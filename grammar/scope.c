@@ -40,7 +40,10 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
         GrammarPropagateError(braces, output);
         if (braces.status == TRY_SUCCESS) {
             stmt_str->end = braces.value.end;
-            TryScope_t scope = parse_scope(braces.value, errors);
+            ConstString_t contents;
+            contents.begin = braces.value.begin + 1;
+            contents.end = braces.value.end - 1;
+            TryScope_t scope = parse_scope(contents, errors);
             GrammarPropagateError(scope, output);
             if (scope.status == TRY_SUCCESS) {
                 output.status = TRY_SUCCESS;
@@ -285,18 +288,14 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
 
 TryScope_t parse_scope(const ConstString_t str, ErrorLinkedListNode_t ***const errors) {
     TryScope_t output;
-    if (str.end - str.begin <= 2 || *str.begin != '{' || *(str.end - 1) != '}') {
-        output.status = TRY_ERROR;
-        output.error.location = str;
-        output.error.desc = "Not a scope";
+    if (str.begin == str.end) {
+        output.status = TRY_NONE;
         return output;
     }
     output.status = TRY_SUCCESS;
     output.value.statements = NULL;
     StatementLinkedListNode_t **stmt_head = &output.value.statements;
-    ConstString_t working;
-    working.begin = str.begin + 1;
-    working.end = str.end - 1;
+    ConstString_t working = str;
     working = strip_whitespace(working);
     while (working.begin < working.end) {
         ConstString_t stmt_str;
@@ -319,22 +318,28 @@ size_t print_scope(char *buffer, const Scope_t *const scope, const int32_t depth
     size_t num_chars = 0;
     const StatementLinkedListNode_t *statement = scope->statements;
     if (statement) {
-        num_chars += sprintf(buffer, "{\n");
+        if (depth >= 0) {
+            num_chars += sprintf(buffer, "{\n");
+        }
         while (statement) {
             num_chars += sprintf(buffer + num_chars, "%*s", (depth + 1) * 4, "");
             num_chars += print_statement(buffer + num_chars, &statement->value, depth + 1);
             num_chars += sprintf(buffer + num_chars, "\n");
             statement = statement->next;
         }
-        num_chars += sprintf(buffer + num_chars, "%*s}", 4 * depth, "");
+        if (depth >= 0) {
+            num_chars += sprintf(buffer + num_chars, "%*s}", 4 * depth, "");
+        }
     }
     else {
-        num_chars += sprintf(buffer, "{ }");
+        if (depth >= 0) {
+            num_chars += sprintf(buffer, "{ }");
+        }
     }
     return num_chars;
 }
 
-size_t print_statement(char *buffer, const Statement_t *const stmt, const uint32_t depth) {
+size_t print_statement(char *buffer, const Statement_t *const stmt, const int32_t depth) {
     buffer[0] = 0;
     size_t num_chars = 0;
     switch (stmt->variant) {
