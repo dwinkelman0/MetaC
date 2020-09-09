@@ -10,6 +10,7 @@ TryVariable_t parse_variable(const ConstString_t str);
 TryExpression_t parse_left_expression(const ConstString_t str);
 TryExpression_t parse_right_expression(const ConstString_t str);
 TryExpression_t parse_type_expression(const ConstString_t str);
+TryVariable_t parse_typedef(const ConstString_t str);
 
 /**
  * Parse an operator

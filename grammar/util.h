@@ -237,7 +237,8 @@ typedef enum {
     STATEMENT_SCOPE,
     STATEMENT_CONTROL,
     STATEMENT_OPERATOR,
-    STATEMENT_DECLARATION
+    STATEMENT_DECLARATION,
+    STATEMENT_TYPEDEF
 } StatementVariant_t;
 typedef struct Statement {
     StatementVariant_t variant;
@@ -247,6 +248,7 @@ typedef struct Statement {
         struct Control *control;
         struct Operator *operator;
         struct Variable *declaration;
+        struct Variable *tdef;
     };
 } Statement_t;
 typedef enum {

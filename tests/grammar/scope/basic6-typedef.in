@@ -1,0 +1,4 @@
+{
+    typedef struct { int x; int y; } Coord_t;
+    const Coord_t *coord;
+}

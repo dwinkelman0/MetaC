@@ -3,6 +3,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+TryVariable_t parse_typedef(const ConstString_t str) {
+    TryVariable_t output;
+    TryConstString_t typedef_str = find_string(str, const_string_from_cstr("typedef"));
+    if (typedef_str.status == TRY_SUCCESS) {
+        ConstString_t working = strip(str, typedef_str.value).value;
+        TryConstString_t ws = find_whitespace(working);
+        if (ws.status == TRY_NONE) {
+            output.status = TRY_ERROR;
+            output.error.location = working;
+            output.error.desc = "There must be whitespace after a typedef";
+            return output;
+        }
+        working = strip_whitespace(working);
+        output = parse_variable(working);
+        return output;
+    }
+    output.status = TRY_NONE;
+    return output;
+}
+
 /**
  * Parse a statement
  *  SUCCESS: a statement was parsed
@@ -230,11 +250,15 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
     }
     else {
         TryVariable_t var = parse_variable(op_str);
+        output.value.variant = STATEMENT_DECLARATION;
+        if (var.status != TRY_SUCCESS) {
+            var = parse_typedef(op_str);
+            output.value.variant = STATEMENT_TYPEDEF;
+        }
         if (var.status == TRY_SUCCESS && var.value.has_name) {
             output.status = TRY_SUCCESS;
             output.value.str.begin = op_str.begin;
             output.value.str.end = semicolon.value.end;
-            output.value.variant = STATEMENT_DECLARATION;
             output.value.declaration = malloc(sizeof(Variable_t));
             *output.value.declaration = var.value;
             return output;
@@ -243,7 +267,14 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
             **errors = malloc(sizeof(ErrorLinkedListNode_t));
             (**errors)->next = NULL;
             (**errors)->value.location = op_str;
-            (**errors)->value.desc = "Operator or declaration did not parse";
+            if (var.status == TRY_ERROR) {
+                (**errors)->value.desc = var.error.desc;
+            }
+            else {
+                (**errors)->value.desc = var.status != TRY_SUCCESS ?
+                    "Operator, declaration, or typedef did not parse" :
+                    "Declaration or typedef has no name";
+            }
             *errors = &(**errors)->next;
         }
     }
@@ -359,6 +390,11 @@ size_t print_statement(char *buffer, const Statement_t *const stmt, const uint32
                     }
                     break;
             }
+            break;
+        case STATEMENT_TYPEDEF:
+            num_chars += sprintf(buffer + num_chars, "typedef ");
+            num_chars += print_variable(buffer + num_chars, stmt->tdef);
+            num_chars += sprintf(buffer + num_chars, ";");
             break;
     }
     return num_chars;

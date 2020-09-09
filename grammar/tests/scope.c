@@ -11,6 +11,8 @@ const static Case_t cases[] = {
     {true,  "tests/grammar/scope/basic3-bad_op.in", "tests/grammar/scope/basic3-bad_op.out"},
     {true,  "tests/grammar/scope/basic4-empty.in", NULL},
     {true,  "tests/grammar/scope/basic5-struct.in", NULL},
+    {true,  "tests/grammar/scope/basic6-typedef.in", NULL},
+    {true,  "tests/grammar/scope/basic7-bad_typedef.in", "tests/grammar/scope/basic7-bad_typedef.out"},
     {true,  "tests/grammar/scope/nested0.in", NULL},
     {true,  "tests/grammar/scope/nested1-recursion.in", NULL},
     {true,  "tests/grammar/scope/cond0-if.in", NULL},
@@ -36,6 +38,14 @@ static TryCharPtr_t case_func(const ConstString_t str) {
     ErrorLinkedListNode_t *errors = NULL;
     ErrorLinkedListNode_t **errors_head = &errors;
     TryScope_t op = parse_scope(str, &errors_head);
+
+    ErrorLinkedListNode_t *it = errors;
+    while (it) {
+        printf("\e[1;38;5;14m----Scope Error----\e[1;0m got \e[38;5;207m\"%s\"\e[1;0m at \e[38;5;3m\"%.*s\"\e[1;0m\n",
+            it->value.desc, (int)(it->value.location.end - it->value.location.begin), it->value.location.begin);
+        it = it->next;
+    }
+
     if (op.status == TRY_SUCCESS) {
         print_scope(buffer, &op.value, 0);
         output.status = TRY_SUCCESS;

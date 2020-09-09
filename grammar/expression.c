@@ -210,5 +210,7 @@ size_t print_expression(char *buffer, const Expression_t *const expr, const Oper
                 (int)(expr->char_lit.end - expr->char_lit.begin), expr->char_lit.begin);
         case EXPRESSION_UINT_LIT:
             return sprintf(buffer, "%lu", expr->uint_lit);
+        case EXPRESSION_VOID:
+            return sprintf(buffer, "void");
     }
 }
