@@ -229,6 +229,50 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
         return output;
     }
 
+    TryConstString_t parens = find_string_nesting_sensitive(working, const_string_from_cstr("("));
+    GrammarPropagateError(parens, output);
+    if (parens.status == TRY_SUCCESS) {
+        ConstString_t func_str;
+        func_str.begin = parens.value.begin;
+        func_str.end = working.end;
+        parens = find_closing(func_str, '(', ')');
+        if (parens.status == TRY_SUCCESS) {
+            func_str = strip(func_str, parens.value).value;
+            TryConstString_t braces = find_string_nesting_sensitive(working, const_string_from_cstr("{"));
+            if (braces.status == TRY_SUCCESS) {
+                func_str.begin = braces.value.begin;
+                braces = find_closing(func_str, '{', '}');
+                if (braces.status == TRY_SUCCESS) {
+                    ConstString_t func_sig;
+                    func_sig.begin = working.begin;
+                    func_sig.end = braces.value.begin;
+                    ConstString_t scope_str;
+                    scope_str.begin = braces.value.begin + 1;
+                    scope_str.end = braces.value.end - 1;
+
+                    TryVariable_t signature = parse_variable(func_sig);
+                    if (    signature.status == TRY_SUCCESS &&
+                            signature.value.has_name &&
+                            signature.value.type->variant == DERIVED_TYPE_FUNCTION) {
+                        TryScope_t scope = parse_scope(scope_str, errors);
+                        if (scope.status == TRY_SUCCESS) {
+                            Function_t *function = malloc(sizeof(Function_t));
+                            function->signature = signature.value;
+                            function->scope = scope.value;
+                            output.status = TRY_SUCCESS;
+                            output.value.variant = STATEMENT_FUNCTION;
+                            output.value.function = function;
+                            stmt_str->end = braces.value.end;
+                            output.value.str.begin = working.begin;
+                            output.value.str.end = braces.value.end;
+                            return output;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     TryConstString_t semicolon = find_string_nesting_sensitive(working, const_string_from_cstr(";"));
     GrammarPropagateError(semicolon, output);
     if (semicolon.status == TRY_NONE) {
@@ -400,6 +444,11 @@ size_t print_statement(char *buffer, const Statement_t *const stmt, const int32_
             num_chars += sprintf(buffer + num_chars, "typedef ");
             num_chars += print_variable(buffer + num_chars, stmt->tdef);
             num_chars += sprintf(buffer + num_chars, ";");
+            break;
+        case STATEMENT_FUNCTION:
+            num_chars += print_variable(buffer + num_chars, &stmt->function->signature);
+            num_chars += sprintf(buffer + num_chars, " ");
+            num_chars += print_scope(buffer + num_chars, &stmt->function->scope, depth);
             break;
     }
     return num_chars;

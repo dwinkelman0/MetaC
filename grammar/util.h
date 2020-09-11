@@ -233,12 +233,17 @@ typedef struct Operator {
 typedef struct Scope {
     struct StatementLinkedListNode *statements;
 } Scope_t;
+typedef struct Function {
+    struct Variable signature;
+    struct Scope scope;
+} Function_t;
 typedef enum {
     STATEMENT_SCOPE,
     STATEMENT_CONTROL,
     STATEMENT_OPERATOR,
     STATEMENT_DECLARATION,
-    STATEMENT_TYPEDEF
+    STATEMENT_TYPEDEF,
+    STATEMENT_FUNCTION
 } StatementVariant_t;
 typedef struct Statement {
     StatementVariant_t variant;
@@ -249,6 +254,7 @@ typedef struct Statement {
         struct Operator *operator;
         struct Variable *declaration;
         struct Variable *tdef;
+        struct Function *function;
     };
 } Statement_t;
 typedef enum {

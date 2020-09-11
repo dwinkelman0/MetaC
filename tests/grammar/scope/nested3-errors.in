@@ -1,0 +1,8 @@
+int func() {
+    syntax error(3);
+    for (int i = 0; i < 3; i += 1) {
+        Object_t obj = get(i);
+        obj.things = ;
+    }
+    return 0;
+}

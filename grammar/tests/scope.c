@@ -16,6 +16,8 @@ const static Case_t cases[] = {
     {true,  "tests/grammar/scope/basic8-global.in", NULL},
     {true,  "tests/grammar/scope/nested0.in", NULL},
     {true,  "tests/grammar/scope/nested1-recursion.in", NULL},
+    {true,  "tests/grammar/scope/nested2-functions.in", NULL},
+    {true,  "tests/grammar/scope/nested3-errors.in", "tests/grammar/scope/nested3-errors.out"},
     {true,  "tests/grammar/scope/cond0-if.in", NULL},
     {true,  "tests/grammar/scope/cond1-for.in", NULL},
     {true,  "tests/grammar/scope/cond2-while.in", NULL},
@@ -30,6 +32,9 @@ const static Case_t cases[] = {
     {true,  "tests/grammar/scope/cond11-return.in", NULL},
     {true,  "tests/grammar/scope/cond12-return_value.in", NULL},
     {false, "tests/grammar/scope/cond13-break_value.in", NULL},
+    {true,  "tests/grammar/scope/func0.in", NULL},
+    {true,  "tests/grammar/scope/func1-return_func.in", NULL},
+    {true,  "tests/grammar/scope/func2-func_error.in", "tests/grammar/scope/func2-func_error.out"},
     {false, NULL, NULL}
 };
 

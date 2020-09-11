@@ -50,6 +50,7 @@ const static Case_t cases[] = {
     {true,  "void *const (*const func)()", NULL},
     {true,  "void (*func)(void (*callback)(int x), void *args)", NULL},
     {true,  "void (*func)(void (*callback)(int x, int y), void *args)", NULL},
+    {true,  "float (*func(const float))(const enum Operator_t op)", NULL},
     {true,  "void (*)()", NULL},
     {false, "void *()", NULL},
     {false, "void ()", NULL},

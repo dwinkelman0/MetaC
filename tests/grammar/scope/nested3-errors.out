@@ -1,0 +1,6 @@
+int func() {
+    for (int i = 0; i < 3; i += 1) {
+        Object_t obj = get(i);
+    }
+    return 0;
+}

@@ -1,0 +1,6 @@
+float func(const float input) {
+    float square_func(const float x) {
+        return x * x;
+    }
+    return square_func(input);
+}

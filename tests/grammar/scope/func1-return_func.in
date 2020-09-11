@@ -1,0 +1,14 @@
+float sqrt(const float x) {
+    return __builtin_sqrt(x);
+}
+float cbrt(const float x) {
+    return __buildin_cbrt(x);
+}
+float (*get_func(const float))(const enum Operator_t op) {
+    if (op == SQRT) {
+        return sqrt;
+    }
+    if (op == CBRT) {
+        return cbrt;
+    }
+}

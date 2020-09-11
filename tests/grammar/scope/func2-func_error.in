@@ -1,0 +1,4 @@
+int func() {
+    syntax error(2);
+    return 0;
+}
