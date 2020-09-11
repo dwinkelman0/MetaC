@@ -220,12 +220,39 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
             return output;
         }
         control.exec = exec.value;
+        output.value.str.begin = working.begin;
+        output.value.str.end = exec_str.end;
+        if (control.variant == CONTROL_IF) {
+            control.ctrl_if.continuation = NULL;
+            ConstString_t continuation_str;
+            continuation_str.begin = exec_str.end;
+            continuation_str.end = working.end;
+            continuation_str = strip_whitespace(continuation_str);
+            TryConstString_t else_str = find_string(continuation_str, const_string_from_cstr("else"));
+            if (else_str.status == TRY_SUCCESS) {
+                continuation_str = strip(continuation_str, else_str.value).value;
+                TryConstString_t id_str = find_identifier(continuation_str);
+                if (id_str.status == TRY_NONE) {
+                    ConstString_t scope_str;
+                    TryStatement_t else_stmt = parse_statement(continuation_str, errors, &scope_str);
+                    GrammarPropagateError(else_stmt, output);
+                    if (else_stmt.status == TRY_NONE) {
+                        output.status = TRY_ERROR;
+                        output.error.location = cont_working;
+                        output.error.desc = "Else needs a scope";
+                        return output;
+                    }
+                    control.ctrl_if.continuation = malloc(sizeof(Statement_t));
+                    *control.ctrl_if.continuation = else_stmt.value;
+                    output.value.str.end = scope_str.end;
+                }
+            }
+        }
         output.status = TRY_SUCCESS;
         output.value.control = malloc(sizeof(Control_t));
         *output.value.control = control;
-        stmt_str->end = exec_str.end;
-        output.value.str.begin = working.begin;
-        output.value.str.end = exec_str.end;
+        stmt_str->end = output.value.str.end;
+        print_const_string(output.value.str, "output.value.str");
         return output;
     }
 
@@ -405,6 +432,10 @@ size_t print_statement(char *buffer, const Statement_t *const stmt, const int32_
                     num_chars += print_expression(buffer + num_chars, &stmt->control->condition, NULL);
                     num_chars += sprintf(buffer + num_chars, ") ");
                     num_chars += print_statement(buffer + num_chars, &stmt->control->exec, depth);
+                    if (stmt->control->ctrl_if.continuation) {
+                        num_chars += sprintf(buffer + num_chars, "\n%*selse ", depth * 4, "");
+                        num_chars += print_statement(buffer + num_chars, stmt->control->ctrl_if.continuation, depth);
+                    }
                     break;
                 case CONTROL_WHILE:
                     num_chars += sprintf(buffer + num_chars, "while (");

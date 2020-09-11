@@ -37,23 +37,24 @@ int test_fixture(const Case_t *const cases, TryCharPtr_t (*const func)(const Con
 
         ConstString_t wrapped_str = const_string_from_cstr(input);
         TryCharPtr_t result = func(wrapped_str);
+        const char *separator = variant == TEST_INPUT_STRING ? " " : "\n";
         if (result.status == TRY_SUCCESS) {
             if (c->succeeds) {
                 if (!strcmp(result.value, output)) {
-                    sprintf(print_buffer, "(expected success) %s",
-                        input);
+                    sprintf(print_buffer, "(expected success)%s%s",
+                        separator, input);
                     print_pass(print_buffer);
                 }
                 else {
-                    sprintf(print_buffer, "(expected success, got \"\e[38;5;3m%s\e[1;0m\") %s",
-                        result.value, input);
+                    sprintf(print_buffer, "(expected success, got \"\e[38;5;3m%s\e[1;0m\")%s%s",
+                        result.value, separator, input);
                     print_fail(print_buffer);
                     ++n_failed_tests;
                 }
             }
             else {
-                sprintf(print_buffer, "(expected failure, got \"\e[38;5;3m%s\e[1;0m\") %s",
-                    result.value, input);
+                sprintf(print_buffer, "(expected failure, got \"\e[38;5;3m%s\e[1;0m\")%s%s",
+                    result.value, separator, input);
                 print_fail(print_buffer);
                 ++n_failed_tests;
             }
@@ -61,27 +62,27 @@ int test_fixture(const Case_t *const cases, TryCharPtr_t (*const func)(const Con
         else {
             if (c->succeeds) {
                 if (result.status == TRY_ERROR) {
-                    sprintf(print_buffer, "(expected success, got \e[38;5;207m\"%s\"\e[1;0m at \"\e[38;5;3m%.*s\e[1;0m\") %s",
-                        result.error.desc, (int)(result.error.location.end - result.error.location.begin), result.error.location.begin, input);
+                    sprintf(print_buffer, "(expected success, got \e[38;5;207m\"%s\"\e[1;0m at \"\e[38;5;3m%.*s\e[1;0m\")%s%s",
+                        result.error.desc, (int)(result.error.location.end - result.error.location.begin), result.error.location.begin, separator, input);
                     print_fail(print_buffer);
                     ++n_failed_tests;
                 }
                 else {
-                    sprintf(print_buffer, "(expected success, got none) %s",
-                        input);
+                    sprintf(print_buffer, "(expected success, got none)%s%s",
+                        separator, input);
                     print_fail(print_buffer);
                     ++n_failed_tests;
                 }
             }
             else {
                 if (result.status == TRY_ERROR) {
-                    sprintf(print_buffer, "(expected failure, got \e[38;5;207m\"%s\"\e[1;0m at \"\e[38;5;3m%.*s\e[1;0m\") %s",
-                        result.error.desc, (int)(result.error.location.end - result.error.location.begin), result.error.location.begin, input);
+                    sprintf(print_buffer, "(expected failure, got \e[38;5;207m\"%s\"\e[1;0m at \"\e[38;5;3m%.*s\e[1;0m\")%s%s",
+                        result.error.desc, (int)(result.error.location.end - result.error.location.begin), result.error.location.begin, separator, input);
                     print_pass(print_buffer);
                 }
                 else {
-                    sprintf(print_buffer, "(expected failure, got none) %s",
-                        input);
+                    sprintf(print_buffer, "(expected failure, got none)%s%s",
+                        separator, input);
                     print_pass(print_buffer);
                 }
             }

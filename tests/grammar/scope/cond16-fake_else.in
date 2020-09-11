@@ -1,0 +1,5 @@
+if (true) {
+    func(1);
+}
+else_t output = 2;
+return output;

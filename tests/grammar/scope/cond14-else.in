@@ -1,0 +1,6 @@
+if (true) {
+    func();
+}
+else {
+    other_func();
+}

@@ -1,0 +1,4 @@
+if (true) {
+    func();
+}
+else return 0;
