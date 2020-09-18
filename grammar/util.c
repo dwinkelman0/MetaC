@@ -23,6 +23,14 @@ void print_const_string(const ConstString_t str, const char *message) {
     }
 }
 
+int cmp_const_str(ConstString_t const first, ConstString_t const second) {
+    const size_t first_sz = first.end - first.begin;
+    const size_t second_sz = second.end - second.begin;
+    const size_t len = first_sz < second_sz ? first_sz : second_sz;
+    int cmp_result = strncmp(first.begin, second.begin, len);
+    return cmp_result == 0 ? (first_sz - second_sz) : cmp_result;
+}
+
 AConstString_t new_alloc_const_string_from_cstr(const char *const str) {
     size_t len = strlen(str);
     char *buffer = malloc(len + 1);
@@ -47,10 +55,30 @@ AConstString_t new_alloc_const_string_from_const_str(const ConstString_t str) {
     return output;
 }
 
+AConstString_t new_alloc_const_string_from_alloc_const_str(const AConstString_t str) {
+    size_t len = str.end - str.begin;
+    char *buffer = malloc(len + 1);
+    memcpy(buffer, str.begin, len);
+    buffer[len] = 0;
+
+    AConstString_t output;
+    output.begin = buffer;
+    output.end = buffer + len;
+    return output;
+}
+
 void free_alloc_const_string(AConstString_t *const str) {
     free(str->begin);
     str->begin = NULL;
     str->end = NULL;
+}
+
+int cmp_alloc_const_str(AConstString_t const first, AConstString_t const second) {
+    const size_t first_sz = first.end - first.begin;
+    const size_t second_sz = second.end - second.begin;
+    const size_t len = first_sz < second_sz ? first_sz : second_sz;
+    int cmp_result = strncmp(first.begin, second.begin, len);
+    return cmp_result == 0 ? (first_sz - second_sz) : cmp_result;
 }
 
 TryConstString_t strip(const ConstString_t parent, const ConstString_t child) {

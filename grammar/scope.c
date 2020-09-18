@@ -252,7 +252,6 @@ TryStatement_t parse_statement(const ConstString_t str, ErrorLinkedListNode_t **
         output.value.control = malloc(sizeof(Control_t));
         *output.value.control = control;
         stmt_str->end = output.value.str.end;
-        print_const_string(output.value.str, "output.value.str");
         return output;
     }
 

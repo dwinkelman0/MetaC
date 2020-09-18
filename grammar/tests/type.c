@@ -38,6 +38,7 @@ const static Case_t cases[] = {
     {false, "struct { wrong }", NULL},
     {true,  "struct{int x;}", "struct { int x; }"},
     {true,  "struct { int x ; }", "struct { int x; }"},
+    {true,  "struct { struct Datatype { int x; int y; }; Datatype data; }", NULL},
     {true,  "struct { struct { }; }", NULL},
     {true,  "struct { struct { struct { struct { }; }; }; }", NULL},
     {true,  "struct { struct { int x; int y; }; char *str; }", NULL},

@@ -1,6 +1,8 @@
 #ifndef _GRAMMAR_UTIL_H_
 #define _GRAMMAR_UTIL_H_
 
+#include "../common.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -13,6 +15,7 @@ typedef struct {
 } ConstString_t;
 ConstString_t const_string_from_cstr(const char *const str);
 void print_const_string(const ConstString_t str, const char *message);
+int cmp_const_str(ConstString_t const first, ConstString_t const second);
 
 typedef struct {
     char *begin;
@@ -20,7 +23,9 @@ typedef struct {
 } AConstString_t;
 AConstString_t new_alloc_const_string_from_cstr(const char *const str);
 AConstString_t new_alloc_const_string_from_const_str(const ConstString_t str);
+AConstString_t new_alloc_const_string_from_alloc_const_str(const AConstString_t str);
 void free_alloc_const_string(AConstString_t *const str);
+int cmp_alloc_const_str(AConstString_t const first, AConstString_t const second);
 
 /**
  * TRY MACROS
@@ -193,23 +198,6 @@ typedef struct Expression {
 /**
  * OPERATORS
  */
-typedef enum {
-    OP_COMMA,
-    OP_ASSIGN, OP_ADD_ASSIGN, OP_SUB_ASSIGN, OP_MUL_ASSIGN, OP_DIV_ASSIGN, OP_MOD_ASSIGN, OP_SL_ASSIGN, OP_SR_ASSIGN, OP_AND_ASSIGN, OP_XOR_ASSIGN, OP_OR_ASSIGN,
-    OP_COND,
-    OP_LOGICAL_OR,
-    OP_LOGICAL_AND,
-    OP_BITWISE_OR,
-    OP_BITWISE_XOR,
-    OP_BITWISE_AND,
-    OP_EQ, OP_NE,
-    OP_GT, OP_LT, OP_GE, OP_LE,
-    OP_SL, OP_SR,
-    OP_ADD, OP_SUB,
-    OP_MUL, OP_DIV, OP_MOD,
-    OP_POS, OP_NEG, OP_LOGICAL_NOT, OP_BITWISE_NOT, OP_CAST, OP_DEREFERENCE, OP_ADDRESS, OP_SIZEOF,
-    OP_CALL, OP_SUBSCRIPT, OP_MEM_ACCESS, OP_PTR_ACCESS
-} OperatorVariant_t;
 typedef struct Operator {
     OperatorVariant_t variant;
     uint8_t n_operands;

@@ -3,6 +3,7 @@
 #include "../../test_util.h"
 
 #include <stdio.h>
+#include <string.h>
 
 const static Case_t cases[] = {
     {true,  "tests/grammar/scope/basic0.in", NULL},
